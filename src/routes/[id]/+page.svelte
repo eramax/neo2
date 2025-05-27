@@ -844,36 +844,36 @@
           background: #30363d;
           border-color: #484f58;
         }
+      }
 
-        &.copied {
-          background: $green;
-          border-color: #2ea043;
-          color: $text;
-          transform: scale(0.95);
+      :global(.copy-code-btn.copied) {
+        background: $green;
+        border-color: #2ea043;
+        color: $text;
+        transform: scale(0.95);
 
-          &::before {
-            content: "";
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(
-              90deg,
-              transparent,
-              rgba(255, 255, 255, 0.2),
-              transparent
-            );
-            animation: shimmer 0.6s ease-out;
-          }
+        &::before {
+          content: "";
+          position: absolute;
+          top: 0;
+          left: -100%;
+          width: 100%;
+          height: 100%;
+          background: linear-gradient(
+            90deg,
+            transparent,
+            rgba(255, 255, 255, 0.2),
+            transparent
+          );
+          animation: shimmer 0.6s ease-out;
         }
+      }
 
-        &.copy-error {
-          background: $red;
-          border-color: #f85149;
-          color: $text;
-          transform: scale(0.95);
-        }
+      :global(.copy-code-btn.copy-error) {
+        background: $red;
+        border-color: #f85149;
+        color: $text;
+        transform: scale(0.95);
       }
 
       :global(.copy-text) {
@@ -881,7 +881,7 @@
       }
 
       :global(.code-block) {
-        background: $bg-code !important;
+        background: $bg-code;
         margin: 0;
         padding: 20px;
         border-radius: 0;
@@ -891,42 +891,42 @@
         overflow-x: auto;
 
         :global(code) {
-          background: none !important;
-          padding: 0 !important;
+          background: none;
+          padding: 0;
           color: #e6edf3;
         }
       }
 
       // Syntax highlighting
       :global(.hljs-keyword) {
-        color: #ff7b72 !important;
+        color: #ff7b72;
       }
       :global(.hljs-string) {
-        color: #a5d6ff !important;
+        color: #a5d6ff;
       }
       :global(.hljs-comment) {
-        color: #8b949e !important;
+        color: #8b949e;
       }
       :global(.hljs-function) {
-        color: #d2a8ff !important;
+        color: #d2a8ff;
       }
       :global(.hljs-variable) {
-        color: #ffa657 !important;
+        color: #ffa657;
       }
       :global(.hljs-number) {
-        color: #79c0ff !important;
+        color: #79c0ff;
       }
       :global(.hljs-built_in) {
-        color: #ffa657 !important;
+        color: #ffa657;
       }
       :global(.hljs-literal) {
-        color: #79c0ff !important;
+        color: #79c0ff;
       }
       :global(.hljs-title) {
-        color: #d2a8ff !important;
+        color: #d2a8ff;
       }
       :global(.hljs-attr) {
-        color: #79c0ff !important;
+        color: #79c0ff;
       }
     }
   }
