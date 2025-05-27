@@ -192,6 +192,32 @@
   let streamingMessage = $state(""); // Holds the live streamed response
   let isStreaming = $state(false); // Indicates if streaming is in progress
 
+  // Add reference for messages container
+  let messagesContainer;
+
+  // Auto-scroll function
+  function scrollToBottom() {
+    if (messagesContainer) {
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+  }
+
+  // Auto-scroll when streaming message updates or when messages change
+  $effect(() => {
+    if (isStreaming && streamingMessage) {
+      // Use requestAnimationFrame for smooth scrolling during streaming
+      requestAnimationFrame(scrollToBottom);
+    }
+  });
+
+  // Auto-scroll when new messages are added
+  $effect(() => {
+    if (currentMessages.length > 0) {
+      // Small delay to ensure content is rendered
+      setTimeout(scrollToBottom, 10);
+    }
+  });
+
   async function sendMessage() {
     if (!message.trim() || isStreaming) return;
 
@@ -212,6 +238,9 @@
     currentMessages = chatMessages[currentChatId];
     streamingMessage = "";
     isStreaming = true;
+
+    // Scroll to bottom when starting to stream
+    setTimeout(scrollToBottom, 10);
 
     try {
       // Stream response from ollama
@@ -250,6 +279,8 @@
       }
     } finally {
       isStreaming = false;
+      // Final scroll after streaming ends
+      setTimeout(scrollToBottom, 10);
     }
   }
 
@@ -327,7 +358,7 @@
       <h1 class="chat-title">{selectedChat}</h1>
     </div>
 
-    <div class="messages">
+    <div class="messages" bind:this={messagesContainer}>
       {#if isNewChat}
         <div class="welcome-screen">
           <div class="welcome-content">
