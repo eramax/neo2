@@ -4,24 +4,31 @@
   import { onMount } from "svelte";
   import { goto } from "$app/navigation";
   import { page } from "$app/stores";
+  import { browser } from "$app/environment";
   import "../../app.scss";
   import {
     OllamaModelManager,
     ClipboardHelper,
     MarkdownHelper,
+    ChatManager,
+    StorageHelper,
+    StreamingHelper,
+    ModelHelper,
   } from "../../logic.js";
   import CheckmarkIcon from "../../components/CheckmarkIcon.svelte";
   import ModelLinkIcon from "../../components/ModelLinkIcon.svelte";
-  import ollama from "ollama/browser"; // Import ollama npm client
+  import ollama from "ollama/browser";
 
   // Instantiate helpers
   const markdownHelper = new MarkdownHelper();
   const clipboardHelper = new ClipboardHelper();
   const modelManager = new OllamaModelManager();
+  let chatManager;
+  const streamingHelper = new StreamingHelper(ollama);
 
   let selectedChat = $state("explain this code");
   let message = $state("");
-  let selectedModel = $state(null); // Start with null instead of "gpt-4"
+  let selectedModel = $state(null);
   let showModelSelector = $state(false);
   let sidebarCollapsed = $state(false);
 
@@ -30,44 +37,34 @@
   let modelsLoading = $state(true);
   let modelsError = $state(null);
 
-  // Move chatMessages to $state so it can be updated reactively
-  let chatMessages = $state({
-    1: [
-      {
-        metadata: { model: "gpt-4", id: "chatcmpl-1234567890" },
-        role: "ai",
-        content:
-          "This Svelte code sets up a markdown editor with HTML sanitization using `DOMPurify`. Here's a breakdown:\n\n```javascript\n// Example code\nconst editor = new MarkdownEditor({\n  element: document.getElementById('editor'),\n  sanitize: true\n});\n```\n\nThe code includes:\n- **Markdown parsing** with marked\n- **Syntax highlighting** with highlight.js\n- **HTML sanitization** for security",
-        time: "Today at 4:03 PM",
-      },
-    ],
-    2: [
-      {
-        metadata: { model: "gpt-3.5-turbo", id: "chatcmpl-0987654321" },
-        role: "ai",
-        content:
-          "Here's how JavaScript streams work:\n\n```javascript\nconst stream = new ReadableStream({\n  start(controller) {\n    controller.enqueue('Hello ');\n    controller.enqueue('World!');\n    controller.close();\n  }\n});\n```",
-        time: "Yesterday at 2:15 PM",
-      },
-    ],
-    // Other chats have empty arrays or no entries
-  });
+  // Use chat manager data - initialize with defaults for SSR
+  let chats = $state([]);
+  let chatMessages = $state({});
 
-  // Use $derived for computed values to fix reactivity warnings
+  // Use $derived for computed values
   let currentModel = $derived(
-    allowedModels.find((m) => m.id === selectedModel) || allowedModels[0]
+    ModelHelper.getCurrentModel(allowedModels, selectedModel)
   );
 
-  // Replace marked usage with markdownHelper
+  // Add a state for the search term in the model selector
+  let modelSearchTerm = $state("");
+
+  // Derived state for filtered models
+  let filteredModels = $derived(
+    ModelHelper.filterModels(allowedModels, modelSearchTerm)
+  );
+
   function parseMarkdown(content) {
     return markdownHelper.parse(content);
   }
 
   onMount(() => {
-    // Ensure highlight.js is properly initialized
-    markdownHelper.highlightAll();
+    // Initialize ChatManager only in browser
+    chatManager = new ChatManager();
+    chats = chatManager.getChats();
+    chatMessages = chatManager.getChatMessages();
 
-    // Add global copy function
+    markdownHelper.highlightAll();
     window.copyCodeToClipboard = clipboardHelper.copyCodeToClipboard;
 
     // Load models from Ollama
@@ -78,41 +75,17 @@
       selectedModel,
       setSelectedModel: (id) => (selectedModel = id),
     });
-
-    // Load chats and chatMessages from localStorage if available
-    const storedChats = localStorage.getItem("neo2_chats");
-    const storedChatMessages = localStorage.getItem("neo2_chatMessages");
-    if (storedChats) {
-      try {
-        chats = JSON.parse(storedChats);
-      } catch {}
-    }
-    if (storedChatMessages) {
-      try {
-        chatMessages = JSON.parse(storedChatMessages);
-      } catch {}
-    }
   });
 
   // Ensure selectedModel is always a valid model after models are loaded
   $effect(() => {
-    if (allowedModels.length > 0) {
-      const storedSelectedModel = localStorage.getItem("neo2_selectedModel");
-
-      // If we have a stored model and it exists in allowedModels, use it
-      if (
-        storedSelectedModel &&
-        allowedModels.some((m) => m.id === storedSelectedModel)
-      ) {
-        selectedModel = storedSelectedModel;
-      }
-      // If no valid selectedModel is set, pick the first one
-      else if (
-        !selectedModel ||
-        !allowedModels.some((m) => m.id === selectedModel)
-      ) {
-        selectedModel = allowedModels[0]?.id;
-      }
+    if (allowedModels.length > 0 && browser) {
+      const storedSelectedModel = StorageHelper.loadSelectedModel();
+      selectedModel = ModelHelper.selectValidModel(
+        allowedModels,
+        storedSelectedModel,
+        selectedModel
+      );
     }
   });
 
@@ -121,45 +94,26 @@
   let currentChat = $state();
   let isNewChat = $state(false);
 
-  // Add a state for the search term in the model selector
-  let modelSearchTerm = $state("");
-
-  // Derived state for filtered models
-  let filteredModels = $derived(
-    allowedModels.filter(
-      (model) =>
-        model.name.toLowerCase().includes(modelSearchTerm.toLowerCase()) || // Search by processed name
-        model.id.toLowerCase().includes(modelSearchTerm.toLowerCase()) // Search by original ID (full name)
-    )
-  );
-
   // Update current chat data when route changes
   $effect(() => {
     const chatId = $page.params.id;
-    if (chatId !== currentChatId) {
+    if (chatId !== currentChatId && chatManager) {
       currentChatId = chatId;
-      currentChat = chats.find((c) => c.id == chatId);
-      // If chatMessages for this chatId doesn't exist, initialize it
-      if (!chatMessages[chatId]) {
-        chatMessages = { ...chatMessages, [chatId]: [] };
-      }
-      currentMessages = chatMessages[chatId];
+      currentChat = chatManager.getCurrentChat(chatId);
+      currentMessages = chatManager.getCurrentMessages(chatId);
       isNewChat = !currentChat;
       selectedChat = currentChat?.title || "New Chat";
+
+      // Update local state with manager data
+      chats = chatManager.getChats();
+      chatMessages = chatManager.getChatMessages();
     }
   });
 
-  // Save chats and chatMessages to localStorage whenever they change
+  // Save selectedModel to localStorage whenever it changes
   $effect(() => {
-    localStorage.setItem("neo2_chats", JSON.stringify(chats));
-  });
-  $effect(() => {
-    localStorage.setItem("neo2_chatMessages", JSON.stringify(chatMessages));
-  });
-  // Save selectedModel to localStorage whenever it changes (but only if it's not null)
-  $effect(() => {
-    if (selectedModel) {
-      localStorage.setItem("neo2_selectedModel", selectedModel);
+    if (browser) {
+      StorageHelper.saveSelectedModel(selectedModel);
     }
   });
 
@@ -177,20 +131,15 @@
   }
 
   function createNewChat() {
-    // Generate a new chat ID and navigate to it
-    const newChatId = Date.now().toString();
-    // Add a new chat entry to chats and chatMessages
-    chats.push({
-      id: newChatId,
-      title: "New Chat",
-      category: "Today",
-    });
-    chatMessages = { ...chatMessages, [newChatId]: [] };
+    if (!chatManager) return;
+    const newChatId = chatManager.createNewChat();
+    chats = chatManager.getChats();
+    chatMessages = chatManager.getChatMessages();
     goto(`/${newChatId}`);
   }
 
-  let streamingMessage = $state(""); // Holds the live streamed response
-  let isStreaming = $state(false); // Indicates if streaming is in progress
+  let streamingMessage = $state("");
+  let isStreaming = $state(false);
 
   // Add reference for messages container
   let messagesContainer;
@@ -205,24 +154,21 @@
   // Auto-scroll when streaming message updates or when messages change
   $effect(() => {
     if (isStreaming && streamingMessage) {
-      // Use requestAnimationFrame for smooth scrolling during streaming
       requestAnimationFrame(scrollToBottom);
     }
   });
 
-  // Auto-scroll when new messages are added
   $effect(() => {
     if (currentMessages.length > 0) {
-      // Small delay to ensure content is rendered
       setTimeout(scrollToBottom, 10);
     }
   });
 
   async function sendMessage() {
-    if (!message.trim() || isStreaming) return;
+    if (!message.trim() || isStreaming || !chatManager) return;
 
-    const userMessage = message; // Store message before clearing
-    message = ""; // Clear input immediately
+    const userMessage = message;
+    message = "";
 
     const userMsg = {
       role: "user",
@@ -230,63 +176,52 @@
       time: new Date().toLocaleTimeString(),
       metadata: { model: selectedModel },
     };
-    // Add user message to chatMessages for this chat
-    chatMessages = {
-      ...chatMessages,
-      [currentChatId]: [...(chatMessages[currentChatId] || []), userMsg],
-    };
-    currentMessages = chatMessages[currentChatId];
+
+    currentMessages = chatManager.addMessage(currentChatId, userMsg);
+    chatMessages = chatManager.getChatMessages();
+
     streamingMessage = "";
     isStreaming = true;
-
-    // Scroll to bottom when starting to stream
     setTimeout(scrollToBottom, 10);
 
-    try {
-      // Stream response from ollama
-      const response = await ollama.chat({
-        model: selectedModel,
-        messages: [
-          ...currentMessages
-            .filter((m) => m.role === "user" || m.role === "ai")
-            .map((m) => ({ role: m.role, content: m.content })),
-        ],
-        stream: true,
-      });
+    const messagesToSend = currentMessages.filter(
+      (m) => m.role === "user" || m.role === "ai"
+    );
 
-      for await (const chunk of response) {
-        streamingMessage += chunk.message.content || "";
-      }
-
-      // Add AI message to chatMessages for this chat
-      const aiMsg = {
-        role: "ai",
-        content: streamingMessage,
-        time: new Date().toLocaleTimeString(),
-        metadata: { model: selectedModel },
-      };
-      chatMessages = {
-        ...chatMessages,
-        [currentChatId]: [...chatMessages[currentChatId], aiMsg],
-      };
-      currentMessages = chatMessages[currentChatId];
-      streamingMessage = "";
-    } catch (err) {
-      if (err.name === "AbortError") {
+    streamingHelper.streamResponse(
+      selectedModel,
+      messagesToSend,
+      (chunk) => {
+        streamingMessage = chunk;
+      },
+      (finalMessage) => {
+        const aiMsg = {
+          role: "ai",
+          content: finalMessage,
+          time: new Date().toLocaleTimeString(),
+          metadata: { model: selectedModel },
+        };
+        currentMessages = chatManager.addMessage(currentChatId, aiMsg);
+        chatMessages = chatManager.getChatMessages();
         streamingMessage = "";
-      } else {
-        streamingMessage = "Error: " + err.message;
+        isStreaming = false;
+        setTimeout(scrollToBottom, 10);
+      },
+      (error, wasAborted) => {
+        if (wasAborted) {
+          streamingMessage = "";
+        } else {
+          streamingMessage = error;
+        }
+        isStreaming = false;
+        setTimeout(scrollToBottom, 10);
       }
-    } finally {
-      isStreaming = false;
-      // Final scroll after streaming ends
-      setTimeout(scrollToBottom, 10);
-    }
+    );
   }
 
   function abortStream() {
     if (isStreaming) {
-      ollama.abort();
+      streamingHelper.abort();
     }
   }
 
@@ -296,18 +231,6 @@
       sendMessage();
     }
   }
-
-  // Add missing chats array definition
-  let chats = $state([
-    { id: 1, title: "explain this code", category: "Today" },
-    { id: 2, title: "explain this code - js /* Stream", category: "Yesterday" },
-    { id: 3, title: "review this code", category: "Previous 30 days" },
-    {
-      id: 4,
-      title: "review this markdown rules",
-      category: "Previous 30 days",
-    },
-  ]);
 </script>
 
 <div class="app">

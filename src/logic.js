@@ -170,3 +170,204 @@ export class OllamaModelManager {
             : `${(bytes / (1024 * 1024)).toFixed(0)}MB`;
     }
 }
+
+export class StorageHelper {
+    static saveChats(chats) {
+        if (typeof localStorage !== 'undefined') {
+            localStorage.setItem("neo2_chats", JSON.stringify(chats));
+        }
+    }
+
+    static loadChats() {
+        if (typeof localStorage !== 'undefined') {
+            const stored = localStorage.getItem("neo2_chats");
+            if (stored) {
+                try {
+                    return JSON.parse(stored);
+                } catch { }
+            }
+        }
+        return [
+            { id: 1, title: "explain this code", category: "Today" },
+            { id: 2, title: "explain this code - js /* Stream", category: "Yesterday" },
+            { id: 3, title: "review this code", category: "Previous 30 days" },
+            { id: 4, title: "review this markdown rules", category: "Previous 30 days" },
+        ];
+    }
+
+    static saveChatMessages(chatMessages) {
+        if (typeof localStorage !== 'undefined') {
+            localStorage.setItem("neo2_chatMessages", JSON.stringify(chatMessages));
+        }
+    }
+
+    static loadChatMessages() {
+        if (typeof localStorage !== 'undefined') {
+            const stored = localStorage.getItem("neo2_chatMessages");
+            if (stored) {
+                try {
+                    return JSON.parse(stored);
+                } catch { }
+            }
+        }
+        return {
+            1: [
+                {
+                    metadata: { model: "gpt-4", id: "chatcmpl-1234567890" },
+                    role: "ai",
+                    content: "This Svelte code sets up a markdown editor with HTML sanitization using `DOMPurify`. Here's a breakdown:\n\n```javascript\n// Example code\nconst editor = new MarkdownEditor({\n  element: document.getElementById('editor'),\n  sanitize: true\n});\n```\n\nThe code includes:\n- **Markdown parsing** with marked\n- **Syntax highlighting** with highlight.js\n- **HTML sanitization** for security",
+                    time: "Today at 4:03 PM",
+                },
+            ],
+            2: [
+                {
+                    metadata: { model: "gpt-3.5-turbo", id: "chatcmpl-0987654321" },
+                    role: "ai",
+                    content: "Here's how JavaScript streams work:\n\n```javascript\nconst stream = new ReadableStream({\n  start(controller) {\n    controller.enqueue('Hello ');\n    controller.enqueue('World!');\n    controller.close();\n  }\n});\n```",
+                    time: "Yesterday at 2:15 PM",
+                },
+            ],
+        };
+    }
+
+    static saveSelectedModel(modelId) {
+        if (modelId && typeof localStorage !== 'undefined') {
+            localStorage.setItem("neo2_selectedModel", modelId);
+        }
+    }
+
+    static loadSelectedModel() {
+        if (typeof localStorage !== 'undefined') {
+            return localStorage.getItem("neo2_selectedModel");
+        }
+        return null;
+    }
+}
+
+export class ChatManager {
+    constructor() {
+        this.chats = StorageHelper.loadChats();
+        this.chatMessages = StorageHelper.loadChatMessages();
+    }
+
+    getChats() {
+        return this.chats;
+    }
+
+    getChatMessages() {
+        return this.chatMessages;
+    }
+
+    getCurrentChat(chatId) {
+        return this.chats.find((c) => c.id == chatId);
+    }
+
+    getCurrentMessages(chatId) {
+        if (!this.chatMessages[chatId]) {
+            this.chatMessages = { ...this.chatMessages, [chatId]: [] };
+        }
+        return this.chatMessages[chatId];
+    }
+
+    createNewChat() {
+        const newChatId = Date.now().toString();
+        this.chats.push({
+            id: newChatId,
+            title: "New Chat",
+            category: "Today",
+        });
+        this.chatMessages = { ...this.chatMessages, [newChatId]: [] };
+        this.saveData();
+        return newChatId;
+    }
+
+    addMessage(chatId, message) {
+        if (!this.chatMessages[chatId]) {
+            this.chatMessages[chatId] = [];
+        }
+        this.chatMessages = {
+            ...this.chatMessages,
+            [chatId]: [...this.chatMessages[chatId], message]
+        };
+        this.saveData();
+        return this.chatMessages[chatId];
+    }
+
+    saveData() {
+        StorageHelper.saveChats(this.chats);
+        StorageHelper.saveChatMessages(this.chatMessages);
+    }
+}
+
+export class StreamingHelper {
+    constructor(ollama) {
+        this.ollama = ollama;
+        this.abortController = null;
+    }
+
+    async streamResponse(model, messages, onChunk, onComplete, onError) {
+        this.abortController = new AbortController();
+        let streamingMessage = "";
+
+        try {
+            const response = await this.ollama.chat({
+                model,
+                messages: messages.map((m) => ({ role: m.role, content: m.content })),
+                stream: true,
+                signal: this.abortController.signal,
+            });
+
+            for await (const chunk of response) {
+                if (this.abortController.signal.aborted) {
+                    throw new Error("Stream aborted");
+                }
+                streamingMessage += chunk.message.content || "";
+                onChunk(streamingMessage);
+            }
+
+            onComplete(streamingMessage);
+        } catch (err) {
+            if (err.name === "AbortError" || err.message === "Stream aborted") {
+                onError("Stream cancelled", true);
+            } else {
+                onError("Error: " + err.message, false);
+            }
+        }
+    }
+
+    abort() {
+        if (this.abortController) {
+            this.abortController.abort();
+        }
+    }
+}
+
+export class ModelHelper {
+    static selectValidModel(allowedModels, storedModel, currentModel) {
+        if (allowedModels.length === 0) return null;
+
+        // If we have a stored model and it exists in allowedModels, use it
+        if (storedModel && allowedModels.some((m) => m.id === storedModel)) {
+            return storedModel;
+        }
+
+        // If no valid currentModel is set, pick the first one
+        if (!currentModel || !allowedModels.some((m) => m.id === currentModel)) {
+            return allowedModels[0]?.id;
+        }
+
+        return currentModel;
+    }
+
+    static getCurrentModel(allowedModels, selectedModel) {
+        return allowedModels.find((m) => m.id === selectedModel) || allowedModels[0];
+    }
+
+    static filterModels(allowedModels, searchTerm) {
+        return allowedModels.filter(
+            (model) =>
+                model.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                model.id.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+    }
+}
