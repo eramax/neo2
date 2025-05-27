@@ -184,16 +184,47 @@
       const data = await response.json();
 
       // Transform Ollama models to our format
-      allowedModels = data.models.map((model) => ({
-        id: model.name,
-        name: model.name.split(":")[0], // Remove tag suffix for display
-        arch: "Ollama",
-        size: formatModelSize(model.size),
-        format: "GGUF",
-        link: `ollama.ai/library/${model.name.split(":")[0]}`,
-        created: new Date(model.modified_at).toLocaleDateString(),
-        details: model.details || {},
-      }));
+      allowedModels = data.models.map((ollamaModel) => {
+        const originalOllamaName = ollamaModel.name; // Full name like "codellama:7b-instruct" or "hf.co/user/model-gguf:Q4"
+
+        let baseNameForProcessing = originalOllamaName;
+        const firstColonIndex = originalOllamaName.indexOf(":");
+
+        // If there's a colon and it's not at the start, consider the part before it as the base.
+        if (firstColonIndex > 0) {
+          baseNameForProcessing = originalOllamaName.substring(
+            0,
+            firstColonIndex
+          );
+        }
+        // If no colon, baseNameForProcessing remains originalOllamaName.
+
+        let displayName = baseNameForProcessing;
+        let link;
+
+        if (baseNameForProcessing.startsWith("hf.co/")) {
+          const hfPath = baseNameForProcessing.substring("hf.co/".length); // "user/model-gguf"
+          displayName = hfPath.substring(hfPath.lastIndexOf("/") + 1); // "model-gguf"
+          displayName = displayName.replace(/-GGUF$/i, ""); // "model"
+          link = `https://huggingface.co/${hfPath}`;
+        } else {
+          // For non-HF names, displayName is already baseNameForProcessing
+          // e.g., "codellama" from "codellama:7b-instruct"
+          // e.g., "Devstral-Small-2505" from "Devstral-Small-2505:Q4_K_XL"
+          link = `https://ollama.com/library/${displayName}`;
+        }
+
+        return {
+          id: originalOllamaName, // Use original full name as ID for selection
+          name: displayName, // User-friendly display name
+          arch: ollamaModel.details?.family || "Unknown",
+          size: formatModelSize(ollamaModel.size),
+          format: ollamaModel.details?.format?.toUpperCase() || "Unknown",
+          link: link,
+          created: new Date(ollamaModel.modified_at).toLocaleDateString(),
+          details: ollamaModel.details || {},
+        };
+      });
 
       // Set default model if current selection is not available
       if (!allowedModels.find((m) => m.id === selectedModel)) {
@@ -221,6 +252,18 @@
   let currentMessages = $state([]);
   let currentChat = $state();
   let isNewChat = $state(false);
+
+  // Add a state for the search term in the model selector
+  let modelSearchTerm = $state("");
+
+  // Derived state for filtered models
+  let filteredModels = $derived(
+    allowedModels.filter(
+      (model) =>
+        model.name.toLowerCase().includes(modelSearchTerm.toLowerCase()) || // Search by processed name
+        model.id.toLowerCase().includes(modelSearchTerm.toLowerCase()) // Search by original ID (full name)
+    )
+  );
 
   // Update current chat data when route changes
   $effect(() => {
@@ -376,66 +419,83 @@
                   </button>
                 </div>
               {:else}
-                <div class="models-grid">
-                  {#each allowedModels as model}
+                <div class="models-grid scrollable-model-list">
+                  {#each filteredModels as model}
                     <button
-                      class="model-card"
+                      class="model-card single-line"
                       class:selected={model.id === selectedModel}
                       onclick={() => selectModel(model.id)}
                       onkeydown={(e) =>
                         e.key === "Enter" && selectModel(model.id)}
                       type="button"
+                      aria-label={`Select model ${model.name}`}
+                      role="option"
+                      aria-selected={model.id === selectedModel}
                     >
-                      <div class="model-card-inner">
-                        <div class="model-header">
-                          <div class="model-name-section">
-                            <h3 class="model-title">{model.name}</h3>
-                            <div class="model-id">{model.id}</div>
-                          </div>
-                          <div class="model-status">
-                            <div class="status-dot"></div>
-                            <span class="status-text">Ready</span>
-                          </div>
-                        </div>
-
-                        <div class="model-specs">
-                          <div class="spec-item">
-                            <span class="spec-label">Architecture</span>
-                            <span class="spec-value">{model.arch}</span>
-                          </div>
-                          <div class="spec-item">
-                            <span class="spec-label">Size</span>
-                            <span class="spec-value">{model.size}</span>
-                          </div>
-                          <div class="spec-item">
-                            <span class="spec-label">Format</span>
-                            <span class="spec-value">{model.format}</span>
-                          </div>
-                        </div>
-
-                        <div class="model-footer">
-                          <div class="model-meta">
-                            <span class="created-date">{model.created}</span>
-                          </div>
-                          <div class="selection-indicator">
+                      <span class="model-title-display" title={model.name}>
+                        {model.name}
+                      </span>
+                      <span class="model-badges">
+                        <span class="badge size" title="Size">{model.size}</span
+                        >
+                        <span class="badge format" title="Format"
+                          >{model.format}</span
+                        >
+                        <span class="badge arch" title="Architecture"
+                          >{model.arch}</span
+                        >
+                      </span>
+                      <span class="model-actions">
+                        {#if model.id === selectedModel}
+                          <span class="selected-indicator" title="Selected">
                             <svg
                               width="16"
                               height="16"
                               viewBox="0 0 16 16"
-                              fill="none"
+                              fill="currentColor"
                             >
                               <path
                                 d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z"
-                                fill="currentColor"
                               />
                             </svg>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div class="model-glow"></div>
+                          </span>
+                        {/if}
+                        {#if model.link}
+                          <a
+                            href={model.link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="model-link-icon"
+                            title={`Open ${model.name} details`}
+                            onclick={(e) => e.stopPropagation()}
+                            aria-label={`Open details for ${model.name} in a new tab`}
+                          >
+                            <svg
+                              width="14"
+                              height="14"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="#888888"
+                              stroke-width="2"
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                            >
+                              <path
+                                d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"
+                              ></path>
+                              <polyline points="15 3 21 3 21 9"></polyline>
+                              <line x1="10" y1="14" x2="21" y2="3"></line>
+                            </svg>
+                          </a>
+                        {/if}
+                      </span>
                     </button>
                   {/each}
+                  {#if filteredModels.length === 0 && !modelsLoading}
+                    <div class="no-models-found">
+                      <p>No models match your search.</p>
+                    </div>
+                  {/if}
                 </div>
               {/if}
             </div>
