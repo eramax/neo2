@@ -12,6 +12,7 @@
   } from "../../logic.js";
   import CheckmarkIcon from "../../components/CheckmarkIcon.svelte";
   import ModelLinkIcon from "../../components/ModelLinkIcon.svelte";
+  import ollama from "ollama/browser"; // Import ollama npm client
 
   // Instantiate helpers
   const markdownHelper = new MarkdownHelper();
@@ -29,19 +30,8 @@
   let modelsLoading = $state(true);
   let modelsError = $state(null);
 
-  // Add missing chats data
-  const chats = [
-    { id: 1, title: "explain this code", category: "Today" },
-    { id: 2, title: "explain this code - js /* Stream", category: "Yesterday" },
-    { id: 3, title: "review this code", category: "Previous 30 days" },
-    {
-      id: 4,
-      title: "review this markdown rules",
-      category: "Previous 30 days",
-    },
-  ];
-
-  const chatMessages = {
+  // Move chatMessages to $state so it can be updated reactively
+  let chatMessages = $state({
     1: [
       {
         metadata: { model: "gpt-4", id: "chatcmpl-1234567890" },
@@ -61,7 +51,7 @@
       },
     ],
     // Other chats have empty arrays or no entries
-  };
+  });
 
   // Use $derived for computed values to fix reactivity warnings
   let currentModel = $derived(
@@ -113,7 +103,11 @@
     if (chatId !== currentChatId) {
       currentChatId = chatId;
       currentChat = chats.find((c) => c.id == chatId);
-      currentMessages = chatMessages[chatId] || [];
+      // If chatMessages for this chatId doesn't exist, initialize it
+      if (!chatMessages[chatId]) {
+        chatMessages = { ...chatMessages, [chatId]: [] };
+      }
+      currentMessages = chatMessages[chatId];
       isNewChat = !currentChat;
       selectedChat = currentChat?.title || "New Chat";
     }
@@ -135,8 +129,91 @@
   function createNewChat() {
     // Generate a new chat ID and navigate to it
     const newChatId = Date.now().toString();
+    // Add a new chat entry to chats and chatMessages
+    chats.push({
+      id: newChatId,
+      title: "New Chat",
+      category: "Today",
+    });
+    chatMessages = { ...chatMessages, [newChatId]: [] };
     goto(`/${newChatId}`);
   }
+
+  let streamingMessage = $state(""); // Holds the live streamed response
+  let isStreaming = $state(false); // Indicates if streaming is in progress
+
+  async function sendMessage() {
+    if (!message.trim() || isStreaming) return;
+    const userMsg = {
+      role: "user",
+      content: message,
+      time: new Date().toLocaleTimeString(),
+      metadata: { model: selectedModel },
+    };
+    // Add user message to chatMessages for this chat
+    chatMessages = {
+      ...chatMessages,
+      [currentChatId]: [...(chatMessages[currentChatId] || []), userMsg],
+    };
+    currentMessages = chatMessages[currentChatId];
+    streamingMessage = "";
+    isStreaming = true;
+
+    try {
+      // Stream response from ollama
+      const response = await ollama.chat({
+        model: selectedModel,
+        messages: [
+          ...currentMessages
+            .filter((m) => m.role === "user" || m.role === "ai")
+            .map((m) => ({ role: m.role, content: m.content })),
+        ],
+        stream: true,
+      });
+
+      for await (const chunk of response) {
+        streamingMessage += chunk.message.content || "";
+      }
+
+      // Add AI message to chatMessages for this chat
+      const aiMsg = {
+        role: "ai",
+        content: streamingMessage,
+        time: new Date().toLocaleTimeString(),
+        metadata: { model: selectedModel },
+      };
+      chatMessages = {
+        ...chatMessages,
+        [currentChatId]: [...chatMessages[currentChatId], aiMsg],
+      };
+      currentMessages = chatMessages[currentChatId];
+      streamingMessage = "";
+    } catch (err) {
+      streamingMessage = "Error: " + err.message;
+    } finally {
+      isStreaming = false;
+      message = "";
+    }
+  }
+
+  function handleInputKeydown(e) {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  }
+
+  // Add missing chats array definition
+  let chats = $state([
+    { id: 1, title: "explain this code", category: "Today" },
+    { id: 2, title: "explain this code - js /* Stream", category: "Yesterday" },
+    { id: 3, title: "review this code", category: "Previous 30 days" },
+    {
+      id: 4,
+      title: "review this markdown rules",
+      category: "Previous 30 days",
+    },
+  ]);
 </script>
 
 <div class="app">
@@ -206,18 +283,35 @@
         </div>
       {:else}
         {#each currentMessages as msg}
-          <div class="message ai-message">
-            <div class="avatar">🤖</div>
+          <div
+            class="message {msg.role === 'ai' ? 'ai-message' : 'user-message'}"
+          >
+            <div class="avatar">{msg.role === "ai" ? "🤖" : "🧑"}</div>
             <div class="message-content">
               <div class="message-header">
-                <span class="sender">{msg.metadata.model}</span>
+                <span class="sender">{msg.metadata?.model || msg.role}</span>
                 <span class="time">{msg.time}</span>
               </div>
-              <div class="thinking">Thought for 4 seconds ⌄</div>
+              {#if msg.role === "ai"}
+                <div class="thinking">Thought for 4 seconds ⌄</div>
+              {/if}
               <div class="content">{@html parseMarkdown(msg.content)}</div>
             </div>
           </div>
         {/each}
+        {#if isStreaming}
+          <div class="message ai-message streaming">
+            <div class="avatar">🤖</div>
+            <div class="message-content">
+              <div class="message-header">
+                <span class="sender">{selectedModel}</span>
+                <span class="time">{new Date().toLocaleTimeString()}</span>
+              </div>
+              <div class="content">{@html parseMarkdown(streamingMessage)}</div>
+              <div class="streaming-indicator">...</div>
+            </div>
+          </div>
+        {/if}
       {/if}
     </div>
 
@@ -228,6 +322,8 @@
           bind:value={message}
           placeholder="Send a Message"
           class="message-input"
+          onkeydown={handleInputKeydown}
+          disabled={isStreaming}
         />
         <div class="model-selector">
           <button
@@ -331,7 +427,11 @@
           {/if}
         </div>
         <button class="mic-btn">🎤</button>
-        <button class="send-btn">⬆</button>
+        <button
+          class="send-btn"
+          onclick={sendMessage}
+          disabled={isStreaming || !message.trim()}>⬆</button
+        >
       </div>
     </div>
   </main>
