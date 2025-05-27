@@ -108,41 +108,7 @@
 
   <main class="main-content">
     <div class="chat-header">
-      <div class="model-selector">
-        <button
-          class="model-trigger"
-          on:click={() => (showModelSelector = !showModelSelector)}
-        >
-          <span class="model-icon">{currentModel.icon}</span>
-          <span class="model-name">{currentModel.name}</span>
-          <span class="chevron" class:open={showModelSelector}>▼</span>
-        </button>
-
-        {#if showModelSelector}
-          <div class="model-dropdown">
-            {#each allowedModels as model}
-              <div
-                class="model-card"
-                class:selected={model.id === selectedModel}
-                on:click={() => selectModel(model.id)}
-              >
-                <div class="model-header">
-                  <span class="model-icon">{model.icon}</span>
-                  <div class="model-info">
-                    <div class="model-title">{model.name}</div>
-                    <div class="model-meta">{model.arch} • {model.size}</div>
-                  </div>
-                  <div class="model-format">{model.format}</div>
-                </div>
-                <div class="model-footer">
-                  <span class="model-date">{model.created}</span>
-                  <span class="model-link">{model.link}</span>
-                </div>
-              </div>
-            {/each}
-          </div>
-        {/if}
-      </div>
+      <h1 class="chat-title">{selectedChat}</h1>
     </div>
 
     <div class="messages">
@@ -170,6 +136,40 @@
           placeholder="Send a Message"
           class="message-input"
         />
+        <div class="model-selector">
+          <button
+            class="model-trigger"
+            on:click={() => (showModelSelector = !showModelSelector)}
+          >
+            <span class="model-icon">{currentModel.icon}</span>
+            <span class="chevron" class:open={showModelSelector}>▼</span>
+          </button>
+
+          {#if showModelSelector}
+            <div class="model-dropdown">
+              {#each allowedModels as model}
+                <div
+                  class="model-card"
+                  class:selected={model.id === selectedModel}
+                  on:click={() => selectModel(model.id)}
+                >
+                  <div class="model-header">
+                    <span class="model-icon">{model.icon}</span>
+                    <div class="model-info">
+                      <div class="model-title">{model.name}</div>
+                      <div class="model-meta">{model.arch} • {model.size}</div>
+                    </div>
+                    <div class="model-format">{model.format}</div>
+                  </div>
+                  <div class="model-footer">
+                    <span class="model-date">{model.created}</span>
+                    <span class="model-link">{model.link}</span>
+                  </div>
+                </div>
+              {/each}
+            </div>
+          {/if}
+        </div>
         <button class="mic-btn">🎤</button>
         <button class="send-btn">⬆</button>
       </div>
@@ -303,10 +303,16 @@
 
   .chat-header {
     display: flex;
-    justify-content: space-between;
     align-items: center;
     padding: 12px 20px;
     border-bottom: 1px solid #333;
+  }
+
+  .chat-title {
+    font-size: 18px;
+    font-weight: 500;
+    color: #fff;
+    margin: 0;
   }
 
   .model-selector {
@@ -316,18 +322,14 @@
   .model-trigger {
     display: flex;
     align-items: center;
-    gap: 8px;
-    background: #333;
+    gap: 4px;
+    background: #444;
     border: none;
     color: #fff;
-    padding: 8px 12px;
-    border-radius: 8px;
+    padding: 6px 8px;
+    border-radius: 6px;
     cursor: pointer;
-    font-size: 14px;
-  }
-
-  .model-trigger:hover {
-    background: #444;
+    font-size: 12px;
   }
 
   .chevron {
@@ -341,8 +343,8 @@
 
   .model-dropdown {
     position: absolute;
-    top: 100%;
-    left: 0;
+    bottom: 100%;
+    right: 0;
     background: #2a2a2a;
     border: 1px solid #444;
     border-radius: 12px;
@@ -350,6 +352,7 @@
     min-width: 280px;
     z-index: 100;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    margin-bottom: 8px;
   }
 
   .model-card {
@@ -473,7 +476,7 @@
   .input-container {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 8px;
     background: #333;
     border-radius: 12px;
     padding: 8px 16px;
