@@ -114,6 +114,9 @@
         }, 2000);
       }
     };
+
+    // Load models from Ollama
+    loadOllamaModels();
   });
 
   let selectedChat = $state("explain this code");
@@ -122,49 +125,12 @@
   let showModelSelector = $state(false);
   let sidebarCollapsed = $state(false);
 
-  const allowedModels = [
-    {
-      id: "gpt-4",
-      name: "GPT-4",
-      arch: "Transformer",
-      size: "1.7T",
-      icon: "🤖",
-      format: "API",
-      link: "openai.com/gpt-4",
-      created: "2023-03",
-    },
-    {
-      id: "gpt-3.5-turbo",
-      name: "GPT-3.5 Turbo",
-      arch: "Transformer",
-      size: "175B",
-      icon: "⚡",
-      format: "API",
-      link: "openai.com/gpt-3.5",
-      created: "2022-11",
-    },
-    {
-      id: "claude-3-opus",
-      name: "Claude 3 Opus",
-      arch: "Constitutional AI",
-      size: "Unknown",
-      icon: "🎭",
-      format: "API",
-      link: "anthropic.com/claude",
-      created: "2024-02",
-    },
-    {
-      id: "qwen3",
-      name: "Qwen 3",
-      arch: "Qwen3",
-      size: "32B",
-      icon: "🦙",
-      format: "GGUF",
-      link: "hf/qwen/qwen3-32b",
-      created: "2024-01",
-    },
-  ];
+  // Replace hardcoded models with reactive state
+  let allowedModels = $state([]);
+  let modelsLoading = $state(true);
+  let modelsError = $state(null);
 
+  // Add missing chats data
   const chats = [
     { id: 1, title: "explain this code", category: "Today" },
     { id: 2, title: "explain this code - js /* Stream", category: "Yesterday" },
@@ -197,6 +163,58 @@
     ],
     // Other chats have empty arrays or no entries
   };
+
+  // Use $derived for computed values to fix reactivity warnings
+  let currentModel = $derived(
+    allowedModels.find((m) => m.id === selectedModel) || allowedModels[0]
+  );
+
+  // Function to fetch models from Ollama
+  async function loadOllamaModels() {
+    try {
+      modelsLoading = true;
+      modelsError = null;
+
+      const response = await fetch("http://localhost:11434/api/tags");
+
+      if (!response.ok) {
+        throw new Error(`Ollama API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      // Transform Ollama models to our format
+      allowedModels = data.models.map((model) => ({
+        id: model.name,
+        name: model.name.split(":")[0], // Remove tag suffix for display
+        arch: "Ollama",
+        size: formatModelSize(model.size),
+        format: "GGUF",
+        link: `ollama.ai/library/${model.name.split(":")[0]}`,
+        created: new Date(model.modified_at).toLocaleDateString(),
+        details: model.details || {},
+      }));
+
+      // Set default model if current selection is not available
+      if (!allowedModels.find((m) => m.id === selectedModel)) {
+        selectedModel = allowedModels[0]?.id || "";
+      }
+    } catch (error) {
+      console.error("Failed to load Ollama models:", error);
+      modelsError = error.message;
+    } finally {
+      modelsLoading = false;
+    }
+  }
+
+  // Helper function to format model size
+  function formatModelSize(bytes) {
+    if (!bytes) return "Unknown";
+    const gb = bytes / (1024 * 1024 * 1024);
+    return gb >= 1
+      ? `${gb.toFixed(1)}GB`
+      : `${(bytes / (1024 * 1024)).toFixed(0)}MB`;
+  }
 
   // Reactive variables
   let currentChatId = $state();
@@ -234,10 +252,6 @@
     const newChatId = Date.now().toString();
     goto(`/${newChatId}`);
   }
-
-  let currentModel = $state(
-    allowedModels.find((m) => m.id === selectedModel) || allowedModels[0]
-  );
 </script>
 
 <div class="app">
@@ -334,35 +348,96 @@
           <button
             class="model-trigger"
             onclick={() => (showModelSelector = !showModelSelector)}
+            disabled={modelsLoading}
           >
-            <span class="model-icon">{currentModel.icon}</span>
+            <span class="model-name"
+              >{currentModel?.name || "Select Model"}</span
+            >
             <span class="chevron" class:open={showModelSelector}>▼</span>
           </button>
 
           {#if showModelSelector}
             <div class="model-dropdown">
-              {#each allowedModels as model}
-                <button
-                  class="model-card"
-                  class:selected={model.id === selectedModel}
-                  onclick={() => selectModel(model.id)}
-                  onkeydown={(e) => e.key === "Enter" && selectModel(model.id)}
-                  type="button"
-                >
-                  <div class="model-header">
-                    <span class="model-icon">{model.icon}</span>
-                    <div class="model-info">
-                      <div class="model-title">{model.name}</div>
-                      <div class="model-meta">{model.arch} • {model.size}</div>
-                    </div>
-                    <div class="model-format">{model.format}</div>
+              {#if modelsLoading}
+                <div class="model-loading">
+                  <div class="loading-spinner"></div>
+                  <span>Loading models...</span>
+                </div>
+              {:else if modelsError}
+                <div class="model-error">
+                  <div class="error-icon">⚠️</div>
+                  <div class="error-content">
+                    <span class="error-title">Connection Failed</span>
+                    <span class="error-message">{modelsError}</span>
                   </div>
-                  <div class="model-footer">
-                    <span class="model-date">{model.created}</span>
-                    <span class="model-link">{model.link}</span>
-                  </div>
-                </button>
-              {/each}
+                  <button onclick={loadOllamaModels} class="retry-btn">
+                    <span>↻</span>
+                    Retry
+                  </button>
+                </div>
+              {:else}
+                <div class="models-grid">
+                  {#each allowedModels as model}
+                    <button
+                      class="model-card"
+                      class:selected={model.id === selectedModel}
+                      onclick={() => selectModel(model.id)}
+                      onkeydown={(e) =>
+                        e.key === "Enter" && selectModel(model.id)}
+                      type="button"
+                    >
+                      <div class="model-card-inner">
+                        <div class="model-header">
+                          <div class="model-name-section">
+                            <h3 class="model-title">{model.name}</h3>
+                            <div class="model-id">{model.id}</div>
+                          </div>
+                          <div class="model-status">
+                            <div class="status-dot"></div>
+                            <span class="status-text">Ready</span>
+                          </div>
+                        </div>
+
+                        <div class="model-specs">
+                          <div class="spec-item">
+                            <span class="spec-label">Architecture</span>
+                            <span class="spec-value">{model.arch}</span>
+                          </div>
+                          <div class="spec-item">
+                            <span class="spec-label">Size</span>
+                            <span class="spec-value">{model.size}</span>
+                          </div>
+                          <div class="spec-item">
+                            <span class="spec-label">Format</span>
+                            <span class="spec-value">{model.format}</span>
+                          </div>
+                        </div>
+
+                        <div class="model-footer">
+                          <div class="model-meta">
+                            <span class="created-date">{model.created}</span>
+                          </div>
+                          <div class="selection-indicator">
+                            <svg
+                              width="16"
+                              height="16"
+                              viewBox="0 0 16 16"
+                              fill="none"
+                            >
+                              <path
+                                d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z"
+                                fill="currentColor"
+                              />
+                            </svg>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="model-glow"></div>
+                    </button>
+                  {/each}
+                </div>
+              {/if}
             </div>
           {/if}
         </div>
