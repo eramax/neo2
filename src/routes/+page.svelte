@@ -1,4 +1,116 @@
 <script>
+  import { marked } from "marked";
+  import hljs from "highlight.js";
+  import "highlight.js/styles/github-dark.css";
+  import { onMount } from "svelte";
+
+  // Configure marked with proper highlight.js setup
+  const renderer = new marked.Renderer();
+
+  // Override code span renderer for inline code (single backticks)
+  renderer.codespan = function (code) {
+    return `<code class="inline-code">${code.text}</code>`;
+  };
+
+  // Override code block renderer to add language label and copy functionality
+  renderer.code = function (code) {
+    const validLang = hljs.getLanguage(code.lang) ? code.lang : "text";
+
+    // Ensure code is a string and properly escape it
+    const codeStr = code.text || "";
+    const escapedCode = codeStr
+      .replace(/'/g, "\\'")
+      .replace(/\n/g, "\\n")
+      .replace(/\r/g, "\\r");
+
+    let highlighted;
+    try {
+      highlighted = hljs.highlight(codeStr, { language: validLang }).value;
+    } catch (err) {
+      try {
+        highlighted = hljs.highlightAuto(codeStr).value;
+      } catch (autoErr) {
+        highlighted = codeStr;
+      }
+    }
+
+    return `<div class="code-block-container">
+        <div class="code-block-header">
+          <span class="code-language">${validLang}</span>
+          <button class="copy-code-btn" onclick="copyCodeToClipboard(this, '${escapedCode}')">
+            <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+              <path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z"/>
+              <path d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5h3zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3z"/>
+            </svg>
+            <span class="copy-text">Copy</span>
+          </button>
+        </div>
+        <pre class="code-block"><code class="hljs language-${validLang}">${highlighted}</code></pre>
+      </div>`;
+  };
+
+  marked.setOptions({
+    renderer: renderer,
+    breaks: true,
+    gfm: true,
+    sanitize: false,
+    smartypants: false,
+  });
+
+  function parseMarkdown(content) {
+    try {
+      // Ensure content is a string
+      const contentStr = String(content || "");
+      return marked.parse(contentStr);
+    } catch (err) {
+      console.error("Markdown parse error:", err);
+      return String(content || "");
+    }
+  }
+
+  onMount(() => {
+    // Ensure highlight.js is properly initialized
+    hljs.highlightAll();
+
+    // Add global copy function
+    window.copyCodeToClipboard = async function (button, code) {
+      try {
+        // Unescape the code
+        const unescapedCode = code
+          .replace(/\\'/g, "'")
+          .replace(/\\n/g, "\n")
+          .replace(/\\r/g, "\r");
+
+        await navigator.clipboard.writeText(unescapedCode);
+
+        // Add copied effect
+        button.classList.add("copied");
+        const textSpan = button.querySelector(".copy-text");
+        const originalText = textSpan.textContent;
+        textSpan.textContent = "Copied!";
+
+        // Remove effect after 2 seconds
+        setTimeout(() => {
+          button.classList.remove("copied");
+          textSpan.textContent = originalText;
+        }, 2000);
+      } catch (err) {
+        console.error("Failed to copy:", err);
+
+        // Show error effect
+        button.classList.add("copy-error");
+        const textSpan = button.querySelector(".copy-text");
+        const originalText = textSpan.textContent;
+        textSpan.textContent = "Error";
+
+        setTimeout(() => {
+          button.classList.remove("copy-error");
+          textSpan.textContent = originalText;
+        }, 2000);
+      }
+    };
+  });
+
   let selectedChat = "explain this code";
   let message = "";
   let selectedModel = "gpt-4";
@@ -60,9 +172,13 @@
 
   const messages = [
     {
+      metadata: {
+        model: "gpt-4",
+        id: "chatcmpl-1234567890",
+      },
       role: "ai",
       content:
-        "This Svelte code sets up a markdown editor with HTML sanitization using DOMPurify. Here's a breakdown:",
+        "This Svelte code sets up a markdown editor with HTML sanitization using `DOMPurify`. Here's a breakdown:\n\n```javascript\n// Example code\nconst editor = new MarkdownEditor({\n  element: document.getElementById('editor'),\n  sanitize: true\n});\n```\n\nThe code includes:\n- **Markdown parsing** with marked\n- **Syntax highlighting** with highlight.js\n- **HTML sanitization** for security",
       time: "Today at 4:03 PM",
     },
   ];
@@ -122,12 +238,12 @@
           <div class="avatar">🤖</div>
           <div class="message-content">
             <div class="message-header">
-              <span class="sender">{selectedModel}</span>
+              <span class="sender">{msg.metadata.model}</span>
               >
               <span class="time">{msg.time}</span>
             </div>
             <div class="thinking">Thought for 4 seconds ⌄</div>
-            <div class="content">{msg.content}</div>
+            <div class="content">{@html parseMarkdown(msg.content)}</div>
           </div>
         </div>
       {/each}
@@ -144,7 +260,7 @@
         <div class="model-selector">
           <button
             class="model-trigger"
-            on:click={() => (showModelSelector = !showModelSelector)}
+            onclick={() => (showModelSelector = !showModelSelector)}
           >
             <span class="model-icon">{currentModel.icon}</span>
             <span class="chevron" class:open={showModelSelector}>▼</span>
@@ -153,10 +269,12 @@
           {#if showModelSelector}
             <div class="model-dropdown">
               {#each allowedModels as model}
-                <div
+                <button
                   class="model-card"
                   class:selected={model.id === selectedModel}
-                  on:click={() => selectModel(model.id)}
+                  onclick={() => selectModel(model.id)}
+                  onkeydown={(e) => e.key === "Enter" && selectModel(model.id)}
+                  type="button"
                 >
                   <div class="model-header">
                     <span class="model-icon">{model.icon}</span>
@@ -170,7 +288,7 @@
                     <span class="model-date">{model.created}</span>
                     <span class="model-link">{model.link}</span>
                   </div>
-                </div>
+                </button>
               {/each}
             </div>
           {/if}
@@ -350,6 +468,13 @@
     cursor: pointer;
     margin-bottom: 4px;
     transition: background 0.2s;
+    background: none;
+    border: none;
+    color: inherit;
+    text-align: left;
+    width: 100%;
+    font-family: inherit;
+    font-size: inherit;
   }
 
   .model-card:hover {
@@ -457,6 +582,183 @@
     line-height: 1.6;
   }
 
+  /* Markdown styling */
+  .content :global(h1),
+  .content :global(h2),
+  .content :global(h3),
+  .content :global(h4),
+  .content :global(h5),
+  .content :global(h6) {
+    margin: 16px 0 8px 0;
+    font-weight: 600;
+  }
+
+  .content :global(p) {
+    margin: 8px 0;
+  }
+
+  .content :global(pre) {
+    background: #1e1e1e;
+    border: 1px solid #444;
+    border-radius: 8px;
+    padding: 16px;
+    margin: 12px 0;
+    overflow-x: auto;
+    font-family: "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas,
+      "Courier New", monospace;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  /* Enhanced code block styling */
+  .content :global(.code-block-container) {
+    background: #0d1117;
+    border: 1px solid #30363d;
+    border-radius: 12px;
+    margin: 16px 0;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  }
+
+  .content :global(.code-block-header) {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    background: #161b22;
+    border-bottom: 1px solid #30363d;
+    font-size: 12px;
+  }
+
+  .content :global(.code-language) {
+    color: #7d8590;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .content :global(.copy-code-btn) {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: #21262d;
+    border: 1px solid #30363d;
+    color: #f0f6fc;
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .content :global(.copy-code-btn:hover) {
+    background: #30363d;
+    border-color: #484f58;
+  }
+
+  .content :global(.copy-code-btn.copied) {
+    background: #238636;
+    border-color: #2ea043;
+    color: #ffffff;
+    transform: scale(0.95);
+  }
+
+  .content :global(.copy-code-btn.copy-error) {
+    background: #da3633;
+    border-color: #f85149;
+    color: #ffffff;
+    transform: scale(0.95);
+  }
+
+  .content :global(.copy-code-btn.copied::before) {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(255, 255, 255, 0.2),
+      transparent
+    );
+    animation: shimmer 0.6s ease-out;
+  }
+
+  .content :global(.copy-text) {
+    transition: all 0.2s ease;
+  }
+
+  @keyframes shimmer {
+    0% {
+      left: -100%;
+    }
+    100% {
+      left: 100%;
+    }
+  }
+
+  .content :global(.code-block) {
+    background: #0d1117 !important;
+    margin: 0;
+    padding: 20px;
+    border-radius: 0;
+    border: none;
+    font-size: 14px;
+    line-height: 1.6;
+    overflow-x: auto;
+  }
+
+  .content :global(.code-block code) {
+    background: none !important;
+    padding: 0 !important;
+    color: #e6edf3;
+  }
+
+  /* Override highlight.js github-dark theme for better contrast */
+  .content :global(.hljs-keyword) {
+    color: #ff7b72 !important;
+  }
+
+  .content :global(.hljs-string) {
+    color: #a5d6ff !important;
+  }
+
+  .content :global(.hljs-comment) {
+    color: #8b949e !important;
+  }
+
+  .content :global(.hljs-function) {
+    color: #d2a8ff !important;
+  }
+
+  .content :global(.hljs-variable) {
+    color: #ffa657 !important;
+  }
+
+  .content :global(.hljs-number) {
+    color: #79c0ff !important;
+  }
+
+  .content :global(.hljs-built_in) {
+    color: #ffa657 !important;
+  }
+
+  .content :global(.hljs-literal) {
+    color: #79c0ff !important;
+  }
+
+  .content :global(.hljs-title) {
+    color: #d2a8ff !important;
+  }
+
+  .content :global(.hljs-attr) {
+    color: #79c0ff !important;
+  }
+
   .input-area {
     padding: 20px;
     border-top: 1px solid #333;
@@ -560,5 +862,31 @@
 
   .settings-btn:hover {
     color: #fff;
+  }
+
+  .content :global(code) {
+    background: #2a2a2a;
+    padding: 2px 4px;
+    border-radius: 4px;
+    font-family: "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas,
+      "Courier New", monospace;
+    font-size: 13px;
+  }
+
+  .content :global(.inline-code) {
+    background: #1a472a;
+    color: #7dd3fc;
+    border: 1px solid #22c55e;
+    padding: 2px 6px;
+    border-radius: 6px;
+    font-family: "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas,
+      "Courier New", monospace;
+    font-size: 13px;
+    font-weight: 500;
+  }
+
+  .content :global(pre code) {
+    background: none;
+    padding: 0;
   }
 </style>

@@ -24,6 +24,8 @@
 		"@cartamd/plugin-math": "^4.3.1",
 		"@cartamd/plugin-tikz": "^4.2.2",
 		"carta-md": "^4.10.2",
-		"katex": "^0.16.22"
+		"highlight.js": "^11.11.1",
+		"katex": "^0.16.22",
+		"marked": "^15.0.12"
 	}
 }
