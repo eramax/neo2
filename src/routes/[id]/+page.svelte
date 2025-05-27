@@ -194,9 +194,13 @@
 
   async function sendMessage() {
     if (!message.trim() || isStreaming) return;
+
+    const userMessage = message; // Store message before clearing
+    message = ""; // Clear input immediately
+
     const userMsg = {
       role: "user",
-      content: message,
+      content: userMessage,
       time: new Date().toLocaleTimeString(),
       metadata: { model: selectedModel },
     };
@@ -239,10 +243,19 @@
       currentMessages = chatMessages[currentChatId];
       streamingMessage = "";
     } catch (err) {
-      streamingMessage = "Error: " + err.message;
+      if (err.name === "AbortError") {
+        streamingMessage = "";
+      } else {
+        streamingMessage = "Error: " + err.message;
+      }
     } finally {
       isStreaming = false;
-      message = "";
+    }
+  }
+
+  function abortStream() {
+    if (isStreaming) {
+      ollama.abort();
     }
   }
 
@@ -357,8 +370,17 @@
                 <span class="sender">{selectedModel}</span>
                 <span class="time">{new Date().toLocaleTimeString()}</span>
               </div>
-              <div class="content">{@html parseMarkdown(streamingMessage)}</div>
-              <div class="streaming-indicator">...</div>
+              {#if streamingMessage}
+                <div class="content">
+                  {@html parseMarkdown(streamingMessage)}
+                </div>
+              {:else}
+                <div class="loading-dots">
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                </div>
+              {/if}
             </div>
           </div>
         {/if}
@@ -479,9 +501,13 @@
         <button class="mic-btn">🎤</button>
         <button
           class="send-btn"
-          onclick={sendMessage}
-          disabled={isStreaming || !message.trim()}>⬆</button
+          class:abort={isStreaming}
+          onclick={isStreaming ? abortStream : sendMessage}
+          disabled={!isStreaming && !message.trim()}
+          title={isStreaming ? "Cancel" : "Send"}
         >
+          {isStreaming ? "⏹" : "⬆"}
+        </button>
       </div>
     </div>
   </main>
