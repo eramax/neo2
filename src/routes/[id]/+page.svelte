@@ -115,11 +115,11 @@
     };
   });
 
-  let selectedChat = "explain this code";
-  let message = "";
-  let selectedModel = "gpt-4";
-  let showModelSelector = false;
-  let sidebarCollapsed = false;
+  let selectedChat = $state("explain this code");
+  let message = $state("");
+  let selectedModel = $state("gpt-4");
+  let showModelSelector = $state(false);
+  let sidebarCollapsed = $state(false);
 
   const allowedModels = [
     {
@@ -255,13 +255,13 @@
         <div class="category">
           <div class="category-title">{category}</div>
           {#each chats.filter((c) => c.category === category) as chat}
-            <div
+            <button
               class="chat-item"
               class:active={$page.params.id == chat.id}
               onclick={() => navigateToChat(chat.id)}
             >
               {chat.title}
-            </div>
+            </button>
           {/each}
         </div>
       {/each}
@@ -455,26 +455,10 @@
     transform: scale(1.05);
   }
 
-  .menu-btn,
-  .edit-btn {
-    background: none;
-    border: none;
-    color: #888;
-    cursor: pointer;
-    padding: 8px;
-  }
-
   .chats-section {
     flex: 1;
     padding: 16px 12px;
     overflow-y: auto;
-  }
-
-  .section-header {
-    color: #666;
-    margin-bottom: 12px;
-    font-size: 12px;
-    font-weight: 600;
   }
 
   .category-title {
@@ -494,6 +478,12 @@
     overflow: hidden;
     text-overflow: ellipsis;
     transition: all 0.2s ease;
+    background: none;
+    border: none;
+    font-family: inherit;
+    font-size: inherit;
+    width: 100%;
+    text-align: left;
   }
 
   .chat-item:hover {
