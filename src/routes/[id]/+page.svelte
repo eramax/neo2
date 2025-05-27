@@ -1,123 +1,22 @@
 <!-- This is a svelte v5 page for chat with llm models, using marked for markdown parsing and highlight.js for syntax highlighting. -->
 
 <script>
-  import { marked } from "marked";
-  import hljs from "highlight.js";
   import { onMount } from "svelte";
   import { goto } from "$app/navigation";
   import { page } from "$app/stores";
   import "../../app.scss";
-  //import "highlight.js/styles/github-dark.css";
+  import {
+    OllamaModelManager,
+    ClipboardHelper,
+    MarkdownHelper,
+  } from "../../logic.js";
+  import CheckmarkIcon from "../../components/CheckmarkIcon.svelte";
+  import ModelLinkIcon from "../../components/ModelLinkIcon.svelte";
 
-  // Configure marked with proper highlight.js setup
-  const renderer = new marked.Renderer();
-
-  // Override code span renderer for inline code (single backticks)
-  renderer.codespan = function (code) {
-    return `<code class="inline-code">${code.text}</code>`;
-  };
-
-  // Override code block renderer to add language label and copy functionality
-  renderer.code = function (code) {
-    const validLang = hljs.getLanguage(code.lang) ? code.lang : "text";
-
-    // Ensure code is a string and properly escape it
-    const codeStr = code.text || "";
-    const escapedCode = codeStr
-      .replace(/'/g, "\\'")
-      .replace(/\n/g, "\\n")
-      .replace(/\r/g, "\\r");
-
-    let highlighted;
-    try {
-      highlighted = hljs.highlight(codeStr, { language: validLang }).value;
-    } catch (err) {
-      try {
-        highlighted = hljs.highlightAuto(codeStr).value;
-      } catch (autoErr) {
-        highlighted = codeStr;
-      }
-    }
-
-    return `<div class="code-block-container">
-        <div class="code-block-header">
-          <span class="code-language">${validLang}</span>
-          <button class="copy-code-btn" onclick="copyCodeToClipboard(this, '${escapedCode}')">
-            <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-              <path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z"/>
-              <path d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5h3zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3z"/>
-            </svg>
-            <span class="copy-text">Copy</span>
-          </button>
-        </div>
-        <pre class="code-block"><code class="hljs language-${validLang}">${highlighted}</code></pre>
-      </div>`;
-  };
-
-  marked.setOptions({
-    renderer: renderer,
-    breaks: true,
-    gfm: true,
-    sanitize: false,
-    smartypants: false,
-  });
-
-  function parseMarkdown(content) {
-    try {
-      // Ensure content is a string
-      const contentStr = String(content || "");
-      return marked.parse(contentStr);
-    } catch (err) {
-      console.error("Markdown parse error:", err);
-      return String(content || "");
-    }
-  }
-
-  onMount(() => {
-    // Ensure highlight.js is properly initialized
-    hljs.highlightAll();
-
-    // Add global copy function
-    window.copyCodeToClipboard = async function (button, code) {
-      try {
-        // Unescape the code
-        const unescapedCode = code
-          .replace(/\\'/g, "'")
-          .replace(/\\n/g, "\n")
-          .replace(/\\r/g, "\r");
-
-        await navigator.clipboard.writeText(unescapedCode);
-
-        // Add copied effect
-        button.classList.add("copied");
-        const textSpan = button.querySelector(".copy-text");
-        const originalText = textSpan.textContent;
-        textSpan.textContent = "Copied!";
-
-        // Remove effect after 2 seconds
-        setTimeout(() => {
-          button.classList.remove("copied");
-          textSpan.textContent = originalText;
-        }, 2000);
-      } catch (err) {
-        console.error("Failed to copy:", err);
-
-        // Show error effect
-        button.classList.add("copy-error");
-        const textSpan = button.querySelector(".copy-text");
-        const originalText = textSpan.textContent;
-        textSpan.textContent = "Error";
-
-        setTimeout(() => {
-          button.classList.remove("copy-error");
-          textSpan.textContent = originalText;
-        }, 2000);
-      }
-    };
-
-    // Load models from Ollama
-    loadOllamaModels();
-  });
+  // Instantiate helpers
+  const markdownHelper = new MarkdownHelper();
+  const clipboardHelper = new ClipboardHelper();
+  const modelManager = new OllamaModelManager();
 
   let selectedChat = $state("explain this code");
   let message = $state("");
@@ -169,85 +68,28 @@
     allowedModels.find((m) => m.id === selectedModel) || allowedModels[0]
   );
 
-  // Function to fetch models from Ollama
-  async function loadOllamaModels() {
-    try {
-      modelsLoading = true;
-      modelsError = null;
-
-      const response = await fetch("http://localhost:11434/api/tags");
-
-      if (!response.ok) {
-        throw new Error(`Ollama API error: ${response.status}`);
-      }
-
-      const data = await response.json();
-
-      // Transform Ollama models to our format
-      allowedModels = data.models.map((ollamaModel) => {
-        const originalOllamaName = ollamaModel.name; // Full name like "codellama:7b-instruct" or "hf.co/user/model-gguf:Q4"
-
-        let baseNameForProcessing = originalOllamaName;
-        const firstColonIndex = originalOllamaName.indexOf(":");
-
-        // If there's a colon and it's not at the start, consider the part before it as the base.
-        if (firstColonIndex > 0) {
-          baseNameForProcessing = originalOllamaName.substring(
-            0,
-            firstColonIndex
-          );
-        }
-        // If no colon, baseNameForProcessing remains originalOllamaName.
-
-        let displayName = baseNameForProcessing;
-        let link;
-
-        if (baseNameForProcessing.startsWith("hf.co/")) {
-          const hfPath = baseNameForProcessing.substring("hf.co/".length); // "user/model-gguf"
-          displayName = hfPath.substring(hfPath.lastIndexOf("/") + 1); // "model-gguf"
-          displayName = displayName.replace(/-GGUF$/i, ""); // "model"
-          link = `https://huggingface.co/${hfPath}`;
-        } else {
-          // For non-HF names, displayName is already baseNameForProcessing
-          // e.g., "codellama" from "codellama:7b-instruct"
-          // e.g., "Devstral-Small-2505" from "Devstral-Small-2505:Q4_K_XL"
-          link = `https://ollama.com/library/${displayName}`;
-        }
-
-        return {
-          id: originalOllamaName, // Use original full name as ID for selection
-          name: displayName, // User-friendly display name
-          arch: ollamaModel.details?.family || "Unknown",
-          size: formatModelSize(ollamaModel.size),
-          format: ollamaModel.details?.format?.toUpperCase() || "Unknown",
-          link: link,
-          created: new Date(ollamaModel.modified_at).toLocaleDateString(),
-          details: ollamaModel.details || {},
-        };
-      });
-
-      // Set default model if current selection is not available
-      if (!allowedModels.find((m) => m.id === selectedModel)) {
-        selectedModel = allowedModels[0]?.id || "";
-      }
-    } catch (error) {
-      console.error("Failed to load Ollama models:", error);
-      modelsError = error.message;
-    } finally {
-      modelsLoading = false;
-    }
+  // Replace marked usage with markdownHelper
+  function parseMarkdown(content) {
+    return markdownHelper.parse(content);
   }
 
-  // Helper function to format model size
-  function formatModelSize(bytes) {
-    if (!bytes) return "Unknown";
-    const gb = bytes / (1024 * 1024 * 1024);
-    return gb >= 1
-      ? `${gb.toFixed(1)}GB`
-      : `${(bytes / (1024 * 1024)).toFixed(0)}MB`;
-  }
+  onMount(() => {
+    // Ensure highlight.js is properly initialized
+    markdownHelper.highlightAll();
 
-  // Reactive variables
+    // Add global copy function
+    window.copyCodeToClipboard = clipboardHelper.copyCodeToClipboard;
+
+    // Load models from Ollama
+    modelManager.loadOllamaModels({
+      setAllowedModels: (models) => (allowedModels = models),
+      setModelsLoading: (loading) => (modelsLoading = loading),
+      setModelsError: (err) => (modelsError = err),
+      selectedModel,
+      setSelectedModel: (id) => (selectedModel = id),
+    });
+  });
+
   let currentChatId = $state();
   let currentMessages = $state([]);
   let currentChat = $state();
@@ -413,7 +255,18 @@
                     <span class="error-title">Connection Failed</span>
                     <span class="error-message">{modelsError}</span>
                   </div>
-                  <button onclick={loadOllamaModels} class="retry-btn">
+                  <button
+                    onclick={() =>
+                      modelManager.loadOllamaModels({
+                        setAllowedModels: (models) => (allowedModels = models),
+                        setModelsLoading: (loading) =>
+                          (modelsLoading = loading),
+                        setModelsError: (err) => (modelsError = err),
+                        selectedModel,
+                        setSelectedModel: (id) => (selectedModel = id),
+                      })}
+                    class="retry-btn"
+                  >
                     <span>↻</span>
                     Retry
                   </button>
@@ -448,16 +301,7 @@
                       <span class="model-actions">
                         {#if model.id === selectedModel}
                           <span class="selected-indicator" title="Selected">
-                            <svg
-                              width="16"
-                              height="16"
-                              viewBox="0 0 16 16"
-                              fill="currentColor"
-                            >
-                              <path
-                                d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z"
-                              />
-                            </svg>
+                            <CheckmarkIcon />
                           </span>
                         {/if}
                         {#if model.link}
@@ -470,22 +314,7 @@
                             onclick={(e) => e.stopPropagation()}
                             aria-label={`Open details for ${model.name} in a new tab`}
                           >
-                            <svg
-                              width="14"
-                              height="14"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="#888888"
-                              stroke-width="2"
-                              stroke-linecap="round"
-                              stroke-linejoin="round"
-                            >
-                              <path
-                                d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"
-                              ></path>
-                              <polyline points="15 3 21 3 21 9"></polyline>
-                              <line x1="10" y1="14" x2="21" y2="3"></line>
-                            </svg>
+                            <ModelLinkIcon />
                           </a>
                         {/if}
                       </span>
