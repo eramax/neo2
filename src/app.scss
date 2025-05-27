@@ -747,3 +747,51 @@ br {
     left: 100%;
   }
 }
+
+/* Dark mode scrollbar styling */
+* {
+  /* Webkit browsers (Chrome, Safari, Edge) */
+  scrollbar-width: thin;
+  scrollbar-color: #4a5568 #2d3748;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: #2d3748;
+  border-radius: 4px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: #4a5568;
+  border-radius: 4px;
+  border: 1px solid #2d3748;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: #718096;
+}
+
+*::-webkit-scrollbar-corner {
+  background: #2d3748;
+}
+
+/* Specific styling for messages container and model dropdown */
+.messages::-webkit-scrollbar,
+.scrollable-model-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.messages::-webkit-scrollbar-thumb,
+.scrollable-model-list::-webkit-scrollbar-thumb {
+  background: #4a5568;
+  border-radius: 3px;
+}
+
+.messages::-webkit-scrollbar-thumb:hover,
+.scrollable-model-list::-webkit-scrollbar-thumb:hover {
+  background: #718096;
+}
