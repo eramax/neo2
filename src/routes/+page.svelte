@@ -1,8 +1,8 @@
 <script>
   import { marked } from "marked";
   import hljs from "highlight.js";
-  import "highlight.js/styles/github-dark.css";
   import { onMount } from "svelte";
+  //import "highlight.js/styles/github-dark.css";
 
   // Configure marked with proper highlight.js setup
   const renderer = new marked.Renderer();
@@ -188,8 +188,9 @@
     showModelSelector = false;
   }
 
-  $: currentModel =
-    allowedModels.find((m) => m.id === selectedModel) || allowedModels[0];
+  let currentModel = $state(
+    allowedModels.find((m) => m.id === selectedModel) || allowedModels[0]
+  );
 </script>
 
 <div class="app">
@@ -624,7 +625,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 12px 16px;
+    padding: 2px 16px;
     background: #161b22;
     border-bottom: 1px solid #30363d;
     font-size: 12px;
