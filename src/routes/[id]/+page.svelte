@@ -1,7 +1,11 @@
+<!-- This is a svelte v5 page for chat with llm models, using marked for markdown parsing and highlight.js for syntax highlighting. -->
+
 <script>
   import { marked } from "marked";
   import hljs from "highlight.js";
   import { onMount } from "svelte";
+  import { goto } from "$app/navigation";
+  import { page } from "$app/stores";
   //import "highlight.js/styles/github-dark.css";
 
   // Configure marked with proper highlight.js setup
@@ -115,6 +119,7 @@
   let message = "";
   let selectedModel = "gpt-4";
   let showModelSelector = false;
+  let sidebarCollapsed = false;
 
   const allowedModels = [
     {
@@ -170,22 +175,63 @@
     },
   ];
 
-  const messages = [
-    {
-      metadata: {
-        model: "gpt-4",
-        id: "chatcmpl-1234567890",
+  const chatMessages = {
+    1: [
+      {
+        metadata: { model: "gpt-4", id: "chatcmpl-1234567890" },
+        role: "ai",
+        content:
+          "This Svelte code sets up a markdown editor with HTML sanitization using `DOMPurify`. Here's a breakdown:\n\n```javascript\n// Example code\nconst editor = new MarkdownEditor({\n  element: document.getElementById('editor'),\n  sanitize: true\n});\n```\n\nThe code includes:\n- **Markdown parsing** with marked\n- **Syntax highlighting** with highlight.js\n- **HTML sanitization** for security",
+        time: "Today at 4:03 PM",
       },
-      role: "ai",
-      content:
-        "This Svelte code sets up a markdown editor with HTML sanitization using `DOMPurify`. Here's a breakdown:\n\n```javascript\n// Example code\nconst editor = new MarkdownEditor({\n  element: document.getElementById('editor'),\n  sanitize: true\n});\n```\n\nThe code includes:\n- **Markdown parsing** with marked\n- **Syntax highlighting** with highlight.js\n- **HTML sanitization** for security",
-      time: "Today at 4:03 PM",
-    },
-  ];
+    ],
+    2: [
+      {
+        metadata: { model: "gpt-3.5-turbo", id: "chatcmpl-0987654321" },
+        role: "ai",
+        content:
+          "Here's how JavaScript streams work:\n\n```javascript\nconst stream = new ReadableStream({\n  start(controller) {\n    controller.enqueue('Hello ');\n    controller.enqueue('World!');\n    controller.close();\n  }\n});\n```",
+        time: "Yesterday at 2:15 PM",
+      },
+    ],
+    // Other chats have empty arrays or no entries
+  };
+
+  // Reactive variables
+  let currentChatId = $state();
+  let currentMessages = $state([]);
+  let currentChat = $state();
+  let isNewChat = $state(false);
+
+  // Update current chat data when route changes
+  $effect(() => {
+    const chatId = $page.params.id;
+    if (chatId !== currentChatId) {
+      currentChatId = chatId;
+      currentChat = chats.find((c) => c.id == chatId);
+      currentMessages = chatMessages[chatId] || [];
+      isNewChat = !currentChat;
+      selectedChat = currentChat?.title || "New Chat";
+    }
+  });
 
   function selectModel(modelId) {
     selectedModel = modelId;
     showModelSelector = false;
+  }
+
+  function toggleSidebar() {
+    sidebarCollapsed = !sidebarCollapsed;
+  }
+
+  function navigateToChat(chatId) {
+    goto(`/${chatId}`);
+  }
+
+  function createNewChat() {
+    // Generate a new chat ID and navigate to it
+    const newChatId = Date.now().toString();
+    goto(`/${newChatId}`);
   }
 
   let currentModel = $state(
@@ -194,21 +240,26 @@
 </script>
 
 <div class="app">
-  <aside class="sidebar">
+  <aside class="sidebar" class:collapsed={sidebarCollapsed}>
     <div class="sidebar-header">
-      <button class="menu-btn">☰</button>
-      <button class="new-chat-btn">New Chat</button>
-      <button class="edit-btn">✎</button>
+      <div class="brand-section">
+        <h2 class="brand-title">Neo2</h2>
+        <button class="new-chat-btn" onclick={createNewChat} title="New Chat"
+          >+</button
+        >
+      </div>
     </div>
 
     <div class="chats-section">
-      <div class="section-header">▼ Chats</div>
-
       {#each ["Today", "Yesterday", "Previous 30 days"] as category}
         <div class="category">
           <div class="category-title">{category}</div>
           {#each chats.filter((c) => c.category === category) as chat}
-            <div class="chat-item" class:active={selectedChat === chat.title}>
+            <div
+              class="chat-item"
+              class:active={$page.params.id == chat.id}
+              onclick={() => navigateToChat(chat.id)}
+            >
               {chat.title}
             </div>
           {/each}
@@ -228,26 +279,46 @@
     </div>
   </aside>
 
-  <main class="main-content">
+  <main class="main-content" class:sidebar-collapsed={sidebarCollapsed}>
     <div class="chat-header">
+      <button class="toggle-sidebar-btn" onclick={toggleSidebar}>
+        {sidebarCollapsed ? "☰" : "✕"}
+      </button>
       <h1 class="chat-title">{selectedChat}</h1>
     </div>
 
     <div class="messages">
-      {#each messages as msg}
-        <div class="message ai-message">
-          <div class="avatar">🤖</div>
-          <div class="message-content">
-            <div class="message-header">
-              <span class="sender">{msg.metadata.model}</span>
-              >
-              <span class="time">{msg.time}</span>
-            </div>
-            <div class="thinking">Thought for 4 seconds ⌄</div>
-            <div class="content">{@html parseMarkdown(msg.content)}</div>
+      {#if isNewChat}
+        <div class="welcome-screen">
+          <div class="welcome-content">
+            <h2>Start a new conversation</h2>
+            <p>
+              Ask me anything, and I'll help you with coding, explanations, or
+              general questions.
+            </p>
           </div>
         </div>
-      {/each}
+      {:else if currentMessages.length === 0}
+        <div class="empty-state">
+          <div class="empty-content">
+            <p>No messages in this chat yet.</p>
+          </div>
+        </div>
+      {:else}
+        {#each currentMessages as msg}
+          <div class="message ai-message">
+            <div class="avatar">🤖</div>
+            <div class="message-content">
+              <div class="message-header">
+                <span class="sender">{msg.metadata.model}</span>
+                <span class="time">{msg.time}</span>
+              </div>
+              <div class="thinking">Thought for 4 seconds ⌄</div>
+              <div class="content">{@html parseMarkdown(msg.content)}</div>
+            </div>
+          </div>
+        {/each}
+      {/if}
     </div>
 
     <div class="input-area">
@@ -328,18 +399,60 @@
 
   .sidebar {
     width: 280px;
-    background: #0d1117;
-    border-right: 1px solid #333;
+    background: #0a0a0a;
+    border-right: 1px solid #222;
     display: flex;
     flex-direction: column;
+    transition: all 0.3s ease;
+  }
+
+  .sidebar.collapsed {
+    width: 0;
+    min-width: 0;
+    overflow: hidden;
   }
 
   .sidebar-header {
+    border-bottom: 1px solid #222;
+    padding: 16px;
+  }
+
+  .brand-section {
     display: flex;
     align-items: center;
-    padding: 12px;
-    gap: 8px;
-    border-bottom: 1px solid #333;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .brand-title {
+    font-size: 20px;
+    font-weight: 700;
+    margin: 0;
+    background: linear-gradient(135deg, #007acc, #00d4ff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .new-chat-btn {
+    background: #007acc;
+    border: none;
+    color: #fff;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 18px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+  }
+
+  .new-chat-btn:hover {
+    background: #0086d6;
+    transform: scale(1.05);
   }
 
   .menu-btn,
@@ -351,20 +464,6 @@
     padding: 8px;
   }
 
-  .new-chat-btn {
-    flex: 1;
-    background: none;
-    border: none;
-    color: #fff;
-    text-align: left;
-    padding: 8px 12px;
-    border-radius: 6px;
-  }
-
-  .new-chat-btn:hover {
-    background: #333;
-  }
-
   .chats-section {
     flex: 1;
     padding: 16px 12px;
@@ -372,34 +471,38 @@
   }
 
   .section-header {
-    color: #888;
+    color: #666;
     margin-bottom: 12px;
     font-size: 12px;
+    font-weight: 600;
   }
 
   .category-title {
-    color: #888;
+    color: #666;
     font-size: 12px;
     margin: 16px 0 8px 0;
+    font-weight: 500;
   }
 
   .chat-item {
-    padding: 8px 12px;
+    padding: 10px 12px;
     margin: 2px 0;
-    border-radius: 6px;
+    border-radius: 8px;
     cursor: pointer;
-    color: #ccc;
+    color: #bbb;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    transition: all 0.2s ease;
   }
 
   .chat-item:hover {
-    background: #333;
+    background: #1a1a1a;
+    color: #fff;
   }
 
   .chat-item.active {
-    background: #333;
+    background: #007acc;
     color: #fff;
   }
 
@@ -407,6 +510,11 @@
     flex: 1;
     display: flex;
     flex-direction: column;
+    transition: all 0.3s ease;
+  }
+
+  .main-content.sidebar-collapsed {
+    margin-left: 0;
   }
 
   .chat-header {
@@ -414,6 +522,23 @@
     align-items: center;
     padding: 12px 20px;
     border-bottom: 1px solid #333;
+    gap: 16px;
+  }
+
+  .toggle-sidebar-btn {
+    background: none;
+    border: none;
+    color: #888;
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 6px;
+    font-size: 16px;
+    transition: all 0.2s ease;
+  }
+
+  .toggle-sidebar-btn:hover {
+    background: #333;
+    color: #fff;
   }
 
   .chat-title {
@@ -809,7 +934,7 @@
   }
 
   .user-settings {
-    border-top: 1px solid #333;
+    border-top: 1px solid #222;
     padding: 12px;
   }
 
@@ -820,16 +945,17 @@
     padding: 8px 12px;
     border-radius: 8px;
     cursor: pointer;
+    transition: background 0.2s ease;
   }
 
   .user-profile:hover {
-    background: #333;
+    background: #1a1a1a;
   }
 
   .user-avatar {
     width: 32px;
     height: 32px;
-    background: #444;
+    background: #333;
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -849,16 +975,17 @@
 
   .user-status {
     font-size: 12px;
-    color: #888;
+    color: #666;
   }
 
   .settings-btn {
     background: none;
     border: none;
-    color: #888;
+    color: #666;
     cursor: pointer;
     padding: 4px;
     font-size: 16px;
+    transition: color 0.2s ease;
   }
 
   .settings-btn:hover {
@@ -889,5 +1016,34 @@
   .content :global(pre code) {
     background: none;
     padding: 0;
+  }
+
+  .welcome-screen,
+  .empty-state {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .welcome-content,
+  .empty-content {
+    text-align: center;
+    max-width: 500px;
+    padding: 40px 20px;
+  }
+
+  .welcome-content h2 {
+    font-size: 24px;
+    font-weight: 600;
+    margin-bottom: 12px;
+    color: #fff;
+  }
+
+  .welcome-content p,
+  .empty-content p {
+    color: #888;
+    font-size: 16px;
+    line-height: 1.5;
   }
 </style>
