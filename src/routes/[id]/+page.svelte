@@ -21,7 +21,7 @@
 
   let selectedChat = $state("explain this code");
   let message = $state("");
-  let selectedModel = $state("gpt-4");
+  let selectedModel = $state(null); // Start with null instead of "gpt-4"
   let showModelSelector = $state(false);
   let sidebarCollapsed = $state(false);
 
@@ -78,6 +78,42 @@
       selectedModel,
       setSelectedModel: (id) => (selectedModel = id),
     });
+
+    // Load chats and chatMessages from localStorage if available
+    const storedChats = localStorage.getItem("neo2_chats");
+    const storedChatMessages = localStorage.getItem("neo2_chatMessages");
+    if (storedChats) {
+      try {
+        chats = JSON.parse(storedChats);
+      } catch {}
+    }
+    if (storedChatMessages) {
+      try {
+        chatMessages = JSON.parse(storedChatMessages);
+      } catch {}
+    }
+  });
+
+  // Ensure selectedModel is always a valid model after models are loaded
+  $effect(() => {
+    if (allowedModels.length > 0) {
+      const storedSelectedModel = localStorage.getItem("neo2_selectedModel");
+
+      // If we have a stored model and it exists in allowedModels, use it
+      if (
+        storedSelectedModel &&
+        allowedModels.some((m) => m.id === storedSelectedModel)
+      ) {
+        selectedModel = storedSelectedModel;
+      }
+      // If no valid selectedModel is set, pick the first one
+      else if (
+        !selectedModel ||
+        !allowedModels.some((m) => m.id === selectedModel)
+      ) {
+        selectedModel = allowedModels[0]?.id;
+      }
+    }
   });
 
   let currentChatId = $state();
@@ -110,6 +146,20 @@
       currentMessages = chatMessages[chatId];
       isNewChat = !currentChat;
       selectedChat = currentChat?.title || "New Chat";
+    }
+  });
+
+  // Save chats and chatMessages to localStorage whenever they change
+  $effect(() => {
+    localStorage.setItem("neo2_chats", JSON.stringify(chats));
+  });
+  $effect(() => {
+    localStorage.setItem("neo2_chatMessages", JSON.stringify(chatMessages));
+  });
+  // Save selectedModel to localStorage whenever it changes (but only if it's not null)
+  $effect(() => {
+    if (selectedModel) {
+      localStorage.setItem("neo2_selectedModel", selectedModel);
     }
   });
 
