@@ -84,12 +84,6 @@
       <button class="edit-btn">✎</button>
     </div>
 
-    <div class="search-section">
-      <div class="search-item">🔍 Search</div>
-      <div class="search-item">📝 Notes</div>
-      <div class="search-item">💼 Workspace</div>
-    </div>
-
     <div class="chats-section">
       <div class="section-header">▼ Chats</div>
 
@@ -103,6 +97,17 @@
           {/each}
         </div>
       {/each}
+    </div>
+
+    <div class="user-settings">
+      <div class="user-profile">
+        <div class="user-avatar">👤</div>
+        <div class="user-info">
+          <div class="user-name">User</div>
+          <div class="user-status">Online</div>
+        </div>
+        <button class="settings-btn">⚙️</button>
+      </div>
     </div>
   </aside>
 
@@ -238,22 +243,6 @@
   }
 
   .new-chat-btn:hover {
-    background: #333;
-  }
-
-  .search-section {
-    padding: 16px 12px;
-    border-bottom: 1px solid #333;
-  }
-
-  .search-item {
-    padding: 8px 12px;
-    margin: 2px 0;
-    border-radius: 6px;
-    cursor: pointer;
-  }
-
-  .search-item:hover {
     background: #333;
   }
 
@@ -514,5 +503,62 @@
 
   .message-input::placeholder {
     color: #888;
+  }
+
+  .user-settings {
+    border-top: 1px solid #333;
+    padding: 12px;
+  }
+
+  .user-profile {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+
+  .user-profile:hover {
+    background: #333;
+  }
+
+  .user-avatar {
+    width: 32px;
+    height: 32px;
+    background: #444;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+  }
+
+  .user-info {
+    flex: 1;
+  }
+
+  .user-name {
+    font-size: 14px;
+    font-weight: 500;
+    color: #fff;
+  }
+
+  .user-status {
+    font-size: 12px;
+    color: #888;
+  }
+
+  .settings-btn {
+    background: none;
+    border: none;
+    color: #888;
+    cursor: pointer;
+    padding: 4px;
+    font-size: 16px;
+  }
+
+  .settings-btn:hover {
+    color: #fff;
   }
 </style>
