@@ -2,13 +2,49 @@
   let selectedChat = "explain this code";
   let message = "";
   let selectedModel = "gpt-4";
+  let showModelSelector = false;
 
   const allowedModels = [
-    "gpt-4",
-    "gpt-3.5-turbo",
-    "claude-3-opus",
-    "claude-3-sonnet",
-    "gemini-pro",
+    {
+      id: "gpt-4",
+      name: "GPT-4",
+      arch: "Transformer",
+      size: "1.7T",
+      icon: "🤖",
+      format: "API",
+      link: "openai.com/gpt-4",
+      created: "2023-03",
+    },
+    {
+      id: "gpt-3.5-turbo",
+      name: "GPT-3.5 Turbo",
+      arch: "Transformer",
+      size: "175B",
+      icon: "⚡",
+      format: "API",
+      link: "openai.com/gpt-3.5",
+      created: "2022-11",
+    },
+    {
+      id: "claude-3-opus",
+      name: "Claude 3 Opus",
+      arch: "Constitutional AI",
+      size: "Unknown",
+      icon: "🎭",
+      format: "API",
+      link: "anthropic.com/claude",
+      created: "2024-02",
+    },
+    {
+      id: "qwen3",
+      name: "Qwen 3",
+      arch: "Qwen3",
+      size: "32B",
+      icon: "🦙",
+      format: "GGUF",
+      link: "hf/qwen/qwen3-32b",
+      created: "2024-01",
+    },
   ];
 
   const chats = [
@@ -30,6 +66,14 @@
       time: "Today at 4:03 PM",
     },
   ];
+
+  function selectModel(modelId) {
+    selectedModel = modelId;
+    showModelSelector = false;
+  }
+
+  $: currentModel =
+    allowedModels.find((m) => m.id === selectedModel) || allowedModels[0];
 </script>
 
 <div class="app">
@@ -64,14 +108,40 @@
 
   <main class="main-content">
     <div class="chat-header">
-      <select class="model-select" bind:value={selectedModel}>
-        {#each allowedModels as model}
-          <option value={model}>{model}</option>
-        {/each}
-      </select>
-      <div class="header-actions">
-        <button>⋯</button>
-        <button>☰</button>
+      <div class="model-selector">
+        <button
+          class="model-trigger"
+          on:click={() => (showModelSelector = !showModelSelector)}
+        >
+          <span class="model-icon">{currentModel.icon}</span>
+          <span class="model-name">{currentModel.name}</span>
+          <span class="chevron" class:open={showModelSelector}>▼</span>
+        </button>
+
+        {#if showModelSelector}
+          <div class="model-dropdown">
+            {#each allowedModels as model}
+              <div
+                class="model-card"
+                class:selected={model.id === selectedModel}
+                on:click={() => selectModel(model.id)}
+              >
+                <div class="model-header">
+                  <span class="model-icon">{model.icon}</span>
+                  <div class="model-info">
+                    <div class="model-title">{model.name}</div>
+                    <div class="model-meta">{model.arch} • {model.size}</div>
+                  </div>
+                  <div class="model-format">{model.format}</div>
+                </div>
+                <div class="model-footer">
+                  <span class="model-date">{model.created}</span>
+                  <span class="model-link">{model.link}</span>
+                </div>
+              </div>
+            {/each}
+          </div>
+        {/if}
       </div>
     </div>
 
@@ -239,21 +309,106 @@
     border-bottom: 1px solid #333;
   }
 
-  .model-name {
-    font-weight: 500;
+  .model-selector {
+    position: relative;
   }
 
-  .header-actions {
+  .model-trigger {
     display: flex;
+    align-items: center;
     gap: 8px;
+    background: #333;
+    border: none;
+    color: #fff;
+    padding: 8px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
   }
 
-  .header-actions button {
-    background: none;
-    border: none;
-    color: #888;
+  .model-trigger:hover {
+    background: #444;
+  }
+
+  .chevron {
+    transition: transform 0.2s;
+    font-size: 12px;
+  }
+
+  .chevron.open {
+    transform: rotate(180deg);
+  }
+
+  .model-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    background: #2a2a2a;
+    border: 1px solid #444;
+    border-radius: 12px;
+    padding: 8px;
+    min-width: 280px;
+    z-index: 100;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  }
+
+  .model-card {
+    padding: 12px;
+    border-radius: 8px;
     cursor: pointer;
-    padding: 4px;
+    margin-bottom: 4px;
+    transition: background 0.2s;
+  }
+
+  .model-card:hover {
+    background: #333;
+  }
+
+  .model-card.selected {
+    background: #007acc;
+  }
+
+  .model-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 6px;
+  }
+
+  .model-info {
+    flex: 1;
+  }
+
+  .model-title {
+    font-weight: 500;
+    margin-bottom: 2px;
+  }
+
+  .model-meta {
+    font-size: 12px;
+    color: #aaa;
+  }
+
+  .model-format {
+    background: #444;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 10px;
+    color: #ccc;
+  }
+
+  .model-footer {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: #888;
+  }
+
+  .model-link {
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .messages {
