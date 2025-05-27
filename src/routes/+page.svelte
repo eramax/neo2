@@ -1,4 +1,7 @@
 <script>
+  import { Markdown } from "svelte-exmarkdown";
+  import { gfmPlugin } from "svelte-exmarkdown/gfm";
+  const plugins = [gfmPlugin()];
   let selectedChat = "explain this code";
   let message = "";
   let selectedModel = "gpt-4";
@@ -61,8 +64,19 @@
   const messages = [
     {
       role: "ai",
-      content:
-        "This Svelte code sets up a markdown editor with HTML sanitization using DOMPurify. Here's a breakdown:",
+      content: `This Svelte code sets up a markdown editor with HTML sanitization using DOMPurify. Here's a breakdown:
+
+\`\`\`javascript
+// Example code block
+function sanitizeHTML(html) {
+  return DOMPurify.sanitize(html);
+}
+\`\`\`
+
+The code includes:
+- **Markdown parsing** with \`svelte-exmarkdown\`
+- **Syntax highlighting** for code blocks
+- **Security** through HTML sanitization`,
       time: "Today at 4:03 PM",
     },
   ];
@@ -72,8 +86,9 @@
     showModelSelector = false;
   }
 
-  $: currentModel =
-    allowedModels.find((m) => m.id === selectedModel) || allowedModels[0];
+  let currentModel = $derived(
+    allowedModels.find((m) => m.id === selectedModel) || allowedModels[0]
+  );
 </script>
 
 <div class="app">
@@ -127,7 +142,9 @@
               <span class="time">{msg.time}</span>
             </div>
             <div class="thinking">Thought for 4 seconds ⌄</div>
-            <div class="content">{msg.content}</div>
+            <div class="content">
+              <Markdown md={msg.content} {plugins} />
+            </div>
           </div>
         </div>
       {/each}
@@ -455,6 +472,64 @@
 
   .content {
     line-height: 1.6;
+  }
+
+  .content :global(pre) {
+    background: #2a2a2a;
+    border: 1px solid #444;
+    border-radius: 8px;
+    padding: 16px;
+    overflow-x: auto;
+    margin: 12px 0;
+  }
+
+  .content :global(code) {
+    background: #2a2a2a;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: "Monaco", "Menlo", "Ubuntu Mono", monospace;
+    font-size: 13px;
+  }
+
+  .content :global(pre code) {
+    background: none;
+    padding: 0;
+  }
+
+  .content :global(h1),
+  .content :global(h2),
+  .content :global(h3),
+  .content :global(h4),
+  .content :global(h5),
+  .content :global(h6) {
+    margin: 16px 0 8px 0;
+    color: #fff;
+  }
+
+  .content :global(p) {
+    margin: 8px 0;
+  }
+
+  .content :global(ul),
+  .content :global(ol) {
+    margin: 8px 0;
+    padding-left: 20px;
+  }
+
+  .content :global(blockquote) {
+    border-left: 4px solid #007acc;
+    padding-left: 16px;
+    margin: 12px 0;
+    color: #ccc;
+  }
+
+  .content :global(strong) {
+    color: #fff;
+    font-weight: 600;
+  }
+
+  .content :global(em) {
+    color: #ccc;
   }
 
   .input-area {
