@@ -16,25 +16,28 @@
     ModelHelper,
   } from "../../logic.js";
   import { checkmarkIcon, modelLinkIcon } from "../../icons.js";
-  import ollama from "ollama/browser";
-
-  // Instantiate helpers
+  import { Ollama } from "ollama/browser"; // Instantiate helpers
   const markdownHelper = new MarkdownHelper();
   const clipboardHelper = new ClipboardHelper();
   const modelManager = new OllamaModelManager();
   let chatManager;
-  const streamingHelper = new StreamingHelper(ollama);
+  // Create ollama client with configurable host
+  let ollamaClient = $state(new Ollama({ host: "http://localhost:11434" }));
+  let streamingHelper = $derived(new StreamingHelper(ollamaClient));
 
   let selectedChat = $state("explain this code");
   let message = $state("");
   let selectedModel = $state(null);
   let showModelSelector = $state(false);
   let sidebarCollapsed = $state(false);
-
   // Replace hardcoded models with reactive state
   let allowedModels = $state([]);
   let modelsLoading = $state(true);
   let modelsError = $state(null);
+  let ollamaUrl = $state("http://localhost:11434");
+  let showUrlEditor = $state(false);
+  let tempOllamaUrl = $state("");
+  let connectionStatus = $state("checking"); // "connected", "disconnected", "checking"
 
   // Use chat manager data - initialize with defaults for SSR
   let chats = $state([]);
@@ -56,12 +59,14 @@
   function parseMarkdown(content) {
     return markdownHelper.parse(content);
   }
-
   onMount(() => {
     // Initialize ChatManager only in browser
     chatManager = new ChatManager();
     chats = chatManager.getChats();
     chatMessages = chatManager.getChatMessages();
+
+    // Load Ollama URL from localStorage
+    ollamaUrl = StorageHelper.loadOllamaUrl();
 
     markdownHelper.highlightAll();
     window.copyCodeToClipboard = clipboardHelper.copyCodeToClipboard;
@@ -79,15 +84,8 @@
     });
 
     // Load models from Ollama
-    modelManager.loadOllamaModels({
-      setAllowedModels: (models) => (allowedModels = models),
-      setModelsLoading: (loading) => (modelsLoading = loading),
-      setModelsError: (err) => (modelsError = err),
-      selectedModel,
-      setSelectedModel: (id) => (selectedModel = id),
-    });
+    loadModels();
   });
-
   // Ensure selectedModel is always a valid model after models are loaded
   $effect(() => {
     if (allowedModels.length > 0 && browser) {
@@ -97,6 +95,11 @@
         storedSelectedModel,
         selectedModel
       );
+    }
+  }); // Update ollama client when URL changes
+  $effect(() => {
+    if (ollamaUrl && browser) {
+      ollamaClient = new Ollama({ host: ollamaUrl });
     }
   });
 
@@ -267,7 +270,6 @@
       setTimeout(autoResizeTextarea, 0);
     }
   });
-
   function handleInputKeydown(e) {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -278,6 +280,45 @@
   // Add input handler for auto-resize
   function handleInput() {
     autoResizeTextarea();
+  }
+
+  function loadModels() {
+    connectionStatus = "checking";
+    modelManager.loadOllamaModels({
+      setAllowedModels: (models) => {
+        allowedModels = models;
+        connectionStatus = models.length > 0 ? "connected" : "disconnected";
+      },
+      setModelsLoading: (loading) => (modelsLoading = loading),
+      setModelsError: (err) => {
+        modelsError = err;
+        connectionStatus = "disconnected";
+      },
+      selectedModel,
+      setSelectedModel: (id) => (selectedModel = id),
+    });
+  }
+
+  function toggleUrlEditor() {
+    showUrlEditor = !showUrlEditor;
+    if (showUrlEditor) {
+      tempOllamaUrl = ollamaUrl;
+    }
+  }
+
+  function saveOllamaUrl() {
+    if (tempOllamaUrl && tempOllamaUrl.trim()) {
+      ollamaUrl = tempOllamaUrl.trim();
+      StorageHelper.saveOllamaUrl(ollamaUrl);
+      showUrlEditor = false;
+      // Reload models with new URL
+      loadModels();
+    }
+  }
+
+  function cancelUrlEdit() {
+    showUrlEditor = false;
+    tempOllamaUrl = "";
   }
 </script>
 
@@ -337,37 +378,54 @@
           <span class="model-name">{currentModel?.name || "Select Model"}</span>
           <span class="chevron" class:open={showModelSelector}>▼</span>
         </button>
-
         {#if showModelSelector}
           <div class="model-dropdown">
+            <!-- Server URL Configuration Section -->
+            <div class="server-config-compact">
+              {#if showUrlEditor}
+                <div class="server-status-indicator status-editing"></div>
+                <input
+                  type="text"
+                  bind:value={tempOllamaUrl}
+                  placeholder="http://localhost:11434"
+                  class="server-url-input"
+                />
+                <button
+                  class="server-action-btn save"
+                  onclick={saveOllamaUrl}
+                  title="Save URL"
+                >
+                  ✓
+                </button>
+                <button
+                  class="server-action-btn cancel"
+                  onclick={cancelUrlEdit}
+                  title="Cancel"
+                >
+                  ✕
+                </button>
+              {:else}
+                <div
+                  class="server-status-indicator status-{connectionStatus}"
+                ></div>
+                <span class="server-url-display">{ollamaUrl}</span>
+                <button
+                  class="server-action-btn edit"
+                  onclick={toggleUrlEditor}
+                  title="Edit server URL"
+                >
+                  ✎
+                </button>
+              {/if}
+            </div>
+
+            <!-- Models Section -->
             {#if modelsLoading}
               <div class="model-loading">
                 <div class="loading-spinner"></div>
                 <span>Loading models...</span>
               </div>
-            {:else if modelsError}
-              <div class="model-error">
-                <div class="error-icon">⚠️</div>
-                <div class="error-content">
-                  <span class="error-title">Connection Failed</span>
-                  <span class="error-message">{modelsError}</span>
-                </div>
-                <button
-                  onclick={() =>
-                    modelManager.loadOllamaModels({
-                      setAllowedModels: (models) => (allowedModels = models),
-                      setModelsLoading: (loading) => (modelsLoading = loading),
-                      setModelsError: (err) => (modelsError = err),
-                      selectedModel,
-                      setSelectedModel: (id) => (selectedModel = id),
-                    })}
-                  class="retry-btn"
-                >
-                  <span>↻</span>
-                  Retry
-                </button>
-              </div>
-            {:else}
+            {:else if allowedModels.length > 0}
               <div class="models-grid scrollable-model-list">
                 {#each filteredModels as model}
                   <button
@@ -415,6 +473,14 @@
                     <p>No models match your search.</p>
                   </div>
                 {/if}
+              </div>
+            {:else}
+              <div class="no-connection">
+                <div class="no-connection-icon">🔌</div>
+                <span>No connection to Ollama server</span>
+                <button onclick={loadModels} class="retry-btn-compact">
+                  ↻ Retry
+                </button>
               </div>
             {/if}
           </div>

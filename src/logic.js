@@ -53,9 +53,10 @@ export class OllamaModelManager {
             setModelsLoading(true);
             setModelsError(null);
 
-            const response = await fetch("http://localhost:11434/api/tags");
+            const ollamaUrl = StorageHelper.loadOllamaUrl();
+            const response = await fetch(`${ollamaUrl}/api/tags`);
             if (!response.ok) {
-                throw new Error(`Ollama API error: ${response.status}`);
+                throw new Error(`Ollama API error: ${response.status}. Failed to connect to ${ollamaUrl}`);
             }
             const data = await response.json();
 
@@ -151,13 +152,22 @@ export class StorageHelper {
         if (modelId && typeof localStorage !== 'undefined') {
             localStorage.setItem("neo2_selectedModel", modelId);
         }
-    }
-
-    static loadSelectedModel() {
+    } static loadSelectedModel() {
         if (typeof localStorage !== 'undefined') {
             return localStorage.getItem("neo2_selectedModel");
         }
         return null;
+    }
+
+    static saveOllamaUrl(url) {
+        if (typeof localStorage !== 'undefined') {
+            localStorage.setItem("neo2_ollamaUrl", url);
+        }
+    } static loadOllamaUrl() {
+        if (typeof localStorage !== 'undefined') {
+            return localStorage.getItem("neo2_ollamaUrl") || "http://localhost:11434";
+        }
+        return "http://localhost:11434";
     }
 }
 
@@ -217,11 +227,11 @@ export class ChatManager {
                     if (thinkEndIndex !== -1) {
                         cleanTitle = cleanTitle.substring(thinkEndIndex + '</think>'.length).trim();
                     }
-                    
+
                     // Limit to first 8 words and escape the rest
                     const words = cleanTitle.split(/\s+/);
                     const limitedTitle = words.slice(0, 8).join(' ');
-                    
+
                     resolve(limitedTitle || "New Chat");
                 },
                 (error) => { resolve("New Chat"); } // Fallback title
