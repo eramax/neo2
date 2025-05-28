@@ -314,9 +314,11 @@ export class StreamingHelper {
     }
 
     abort() {
-        if (this.abortController) {
-            this.abortController.abort();
+        if (this.ollama && typeof this.ollama.abort === "function") {
+            this.ollama.abort();
         }
+        // Optionally clear the abortController reference
+        this.abortController = null;
     }
 }
 
