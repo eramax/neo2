@@ -7,12 +7,14 @@ export { MarkdownHelper };
 export class ClipboardHelper {
     async copyCodeToClipboard(button, code) {
         try {
-            const unescapedCode = code
-                .replace(/\\'/g, "'")
-                .replace(/\\n/g, "\n")
-                .replace(/\\r/g, "\r");
+            // Find the nearest code element inside the same code block container
+            const container = button.closest('.code-block-container');
+            if (!container) throw new Error("No code block container found.");
+            const codeElem = container.querySelector('pre.code-block > code');
+            if (!codeElem) throw new Error("No code element found.");
+            const codeText = codeElem.innerText || codeElem.textContent || "";
 
-            await navigator.clipboard.writeText(unescapedCode);
+            await navigator.clipboard.writeText(codeText);
 
             button.classList.add("copied");
             const textSpan = button.querySelector(".copy-text");
