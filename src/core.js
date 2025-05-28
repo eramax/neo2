@@ -91,17 +91,11 @@ export class ChatApp {
             button.classList.add('copy-error');
             setTimeout(() => button.classList.remove('copy-error'), 2000);
         }
-    }
-
-    // Model management
+    }    // Model management
     async loadModels() {
         try {
-            const url = storage.load('ollamaUrl', 'http://localhost:11434');
-            const response = await fetch(`${url}/api/tags`);
-            if (!response.ok) throw new Error(`Failed to connect to ${url}`);
-
-            const data = await response.json();
-            return data.models.map(model => {
+            const response = await this.ollama.list();
+            return response.models.map(model => {
                 const baseName = model.name.split(':')[0];
                 let displayName = baseName;
                 let link = `https://ollama.com/library/${displayName}`;
