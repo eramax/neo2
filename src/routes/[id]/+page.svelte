@@ -395,11 +395,6 @@
                       >
                     </span>
                     <span class="model-actions">
-                      {#if model.id === selectedModel}
-                        <span class="selected-indicator" title="Selected">
-                          <CheckmarkIcon />
-                        </span>
-                      {/if}
                       {#if model.link}
                         <a
                           href={model.link}
