@@ -1,6 +1,6 @@
 <!-- Ultra-compact Svelte 5 chat app -->
 <script>
-  import { onMount } from "svelte";
+  import { onMount, onDestroy } from "svelte";
   import { goto } from "$app/navigation";
   import { page } from "$app/stores";
   import { browser } from "$app/environment";
@@ -83,23 +83,19 @@
     const userMessage = message;
     message = "";
     const time = new Date().toLocaleTimeString();
-
     const userMsg = {
       role: "user",
       content: userMessage,
       time,
       metadata: { model: selectedModel },
     };
-    currentMessages = app.addMessage(currentChatId, userMsg);
 
-    if (currentMessages.length === 1) {
-      setTimeout(async () => {
-        const title = await app.generateTitle(userMessage, selectedModel);
-        await app.updateChatTitle(currentChatId, title);
-        chats = app.getChats();
-        if (currentChatId === $page.params.id) selectedChat = title;
-      }, 0);
-    }
+    // Use the new method that handles async title generation automatically
+    currentMessages = app.addMessageWithTitleGeneration(
+      currentChatId,
+      userMsg,
+      selectedModel
+    );
 
     streamingMessage = "";
     isStreaming = true;
@@ -156,17 +152,25 @@
       loadModels();
     }
   }
-
   onMount(() => {
     loadModels();
+
+    // Add event listener for chat title updates
+    const handleTitleUpdate = (e) => {
+      const { chatId, newTitle } = e.detail;
+      chats = app.getChats();
+      if (chatId === currentChatId) {
+        selectedChat = newTitle;
+        currentChat = app.getChat(chatId);
+      }
+    };
+
     if (typeof window !== "undefined") {
-      window.addEventListener("chatTitleUpdated", (e) => {
-        const { chatId, newTitle } = e.detail;
-        chats = app.getChats();
-        if (chatId === currentChatId) {
-          selectedChat = newTitle;
-          currentChat = app.getChat(chatId);
-        }
+      window.addEventListener("chatTitleUpdated", handleTitleUpdate);
+
+      // Store the cleanup function
+      onDestroy(() => {
+        window.removeEventListener("chatTitleUpdated", handleTitleUpdate);
       });
     }
   });

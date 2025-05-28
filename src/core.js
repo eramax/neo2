@@ -125,15 +125,14 @@ export class ChatApp {
         if (!bytes) return 'Unknown';
         const gb = bytes / (1024 * 1024 * 1024);
         return gb >= 1 ? `${gb.toFixed(1)}GB` : `${(bytes / (1024 * 1024)).toFixed(0)}MB`;
-    }
+    }    // Chat management
+    static TITLE_PROMPT = "Generate a short, descriptive title for this conversation in exactly 7 words or fewer. Do not use any thinking tags or markdown formatting. Just respond with the title directly:";
 
-    // Chat management
     createChat() {
         const id = Date.now().toString();
         this.chats.unshift({ id, title: 'New Chat', category: 'Today' });
         this.messages[id] = [];
-        this.save();
-        return id;
+        this.save(); return id;
     }
 
     addMessage(chatId, message) {
@@ -143,19 +142,108 @@ export class ChatApp {
         return this.messages[chatId];
     }
 
+    // Generate title asynchronously and update chat immediately when ready
+    async generateTitleAsync(chatId, userMessage, model) {
+        if (!chatId || !userMessage || !model) return;
+
+        try {
+            const titlePrompt = `${ChatApp.TITLE_PROMPT} "${userMessage}"`;
+            let lastValidTitle = 'New Chat';
+
+            // Start title generation in the background
+            this.streamResponse(model, [{ role: 'user', content: titlePrompt }],
+                chunk => {
+                    // Update title as we receive chunks
+                    const cleaned = this.cleanTitleResponse(chunk);
+                    if (cleaned && cleaned !== 'New Chat' && cleaned.trim().length > 0) {
+                        lastValidTitle = cleaned;
+                        // Update chat title immediately as we get valid content
+                        this.updateChatTitle(chatId, lastValidTitle);
+                    }
+                },
+                final => {
+                    // Final update with the complete title
+                    const cleaned = this.cleanTitleResponse(final);
+                    const finalTitle = cleaned || lastValidTitle || 'New Chat';
+                    this.updateChatTitle(chatId, finalTitle);
+                },
+                error => {
+                    // On error, use the last valid title we had or fallback
+                    console.warn('Title generation failed:', error);
+                    this.updateChatTitle(chatId, lastValidTitle);
+                }
+            );
+        } catch (error) {
+            console.warn('Title generation error:', error);
+            this.updateChatTitle(chatId, 'New Chat');
+        }
+    }
+
+    addMessageWithTitleGeneration(chatId, message, model = null) {
+        if (!this.messages[chatId]) this.messages[chatId] = [];
+
+        const isFirstUserMessage = this.messages[chatId].length === 0 && message.role === 'user';
+
+        this.messages[chatId].push(message);
+        this.save();
+
+        // Generate title asynchronously for first user message
+        if (isFirstUserMessage && model && message.content) {
+            // Use setTimeout to make this non-blocking
+            setTimeout(() => {
+                this.generateTitleAsync(chatId, message.content, model);
+            }, 0);
+        }
+
+        return this.messages[chatId];
+    }
+
     async generateTitle(userMessage, model) {
         try {
             let title = '';
-            await this.streamResponse(model, [{ role: 'user', content: `Generate a title for this request with max 7 words: "${userMessage}"` }],
-                chunk => title = chunk,
+            const titlePrompt = `${ChatApp.TITLE_PROMPT} "${userMessage}"`;
+
+            await this.streamResponse(model, [{ role: 'user', content: titlePrompt }],
+                chunk => {
+                    // Process chunk in real-time to extract title
+                    const cleaned = this.cleanTitleResponse(chunk);
+                    title = cleaned;
+                },
                 final => {
-                    const clean = final.replace(/.*<\/think>/s, '').trim();
-                    return clean.split(/\s+/).slice(0, 8).join(' ') || 'New Chat';
+                    // Final processing to ensure we have a clean title
+                    const cleaned = this.cleanTitleResponse(final);
+                    title = cleaned;
                 });
-            return title;
+
+            return title || 'New Chat';
         } catch {
             return 'New Chat';
         }
+    }
+
+    cleanTitleResponse(response) {
+        if (!response) return 'New Chat';
+
+        // Remove all thinking tags and their content completely
+        let cleaned = response.replace(/<think>[\s\S]*?<\/think>/gi, '');
+
+        // Remove any remaining incomplete thinking tags
+        cleaned = cleaned.replace(/<think>[\s\S]*$/gi, '');
+
+        // Remove any answer tags if present
+        cleaned = cleaned.replace(/<\/?answer>/gi, '');
+
+        // Remove markdown formatting
+        cleaned = cleaned.replace(/[*_`#\[\]()]/g, '');
+
+        // Clean up whitespace and get only the first 7 words
+        cleaned = cleaned.trim();
+        const words = cleaned.split(/\s+/).filter(word => word.length > 0);
+
+        // Take only first 7 words and join them
+        const titleWords = words.slice(0, 7);
+
+        return titleWords.length > 0 ? titleWords.join(' ') : 'New Chat';
     }
 
     async updateChatTitle(chatId, title) {
