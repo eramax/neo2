@@ -15,8 +15,7 @@
     StreamingHelper,
     ModelHelper,
   } from "../../logic.js";
-  import CheckmarkIcon from "../../components/CheckmarkIcon.svelte";
-  import ModelLinkIcon from "../../components/ModelLinkIcon.svelte";
+  import { checkmarkIcon, modelLinkIcon } from "../../icons.js";
   import ollama from "ollama/browser";
 
   // Instantiate helpers
@@ -405,7 +404,7 @@
                           onclick={(e) => e.stopPropagation()}
                           aria-label={`Open details for ${model.name} in a new tab`}
                         >
-                          <ModelLinkIcon />
+                          <modelLinkIcon />
                         </a>
                       {/if}
                     </span>
@@ -448,7 +447,11 @@
             <div class="avatar">{msg.role === "ai" ? "🤖" : "👤"}</div>
             <div class="message-content">
               <div class="message-header">
-                <span class="sender">{msg.role === "ai" ? (msg.metadata?.model || "AI") : "User"}</span>
+                <span class="sender"
+                  >{msg.role === "ai"
+                    ? msg.metadata?.model || "AI"
+                    : "User"}</span
+                >
                 <span class="time">{msg.time}</span>
               </div>
               <div class="content">
