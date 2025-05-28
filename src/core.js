@@ -96,6 +96,40 @@ export class ChatApp {
         } catch (error) { throw new Error(error.message); }
     }
 
+    async pullModel(modelUrl, onProgress) {
+        try {
+            const res = await this.ollama.pull({
+                model: modelUrl,
+                stream: true
+            });
+            let lastStatus = "";
+            let percent = 0;
+            for await (const chunk of res) {
+                lastStatus = chunk.status || "";
+                if (chunk.total && chunk.completed != null) {
+                    percent = Math.round((chunk.completed / chunk.total) * 100);
+                } else {
+                    percent = 0;
+                }
+                if (onProgress) onProgress({ status: lastStatus, percent });
+                // Notify global listeners for background updates
+                if (typeof window !== "undefined" && window.__ollamaPullProgress) {
+                    window.__ollamaPullProgress({ status: lastStatus, percent, model: modelUrl });
+                }
+            }
+            if (onProgress) onProgress({ status: "Done!", percent: 100 });
+            if (typeof window !== "undefined" && window.__ollamaPullProgress) {
+                window.__ollamaPullProgress({ status: "Done!", percent: 100, model: modelUrl });
+            }
+        } catch (e) {
+            if (onProgress) onProgress({ status: null, percent: 0 });
+            if (typeof window !== "undefined" && window.__ollamaPullProgress) {
+                window.__ollamaPullProgress({ status: null, percent: 0, model: modelUrl, error: e.message });
+            }
+            throw e;
+        }
+    }
+
     formatSize(bytes) {
         if (!bytes) return 'Unknown';
         const gb = bytes / (1024 ** 3);

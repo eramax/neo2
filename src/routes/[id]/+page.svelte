@@ -38,6 +38,22 @@
   );
   const filteredModels = $derived(models);
 
+  let newModelMode = $state(false);
+  let newModelUrl = $state("");
+  let newModelProgress = $state(null);
+  let newModelError = $state(null);
+
+  // Listen for background progress updates
+  if (typeof window !== "undefined") {
+    window.__ollamaPullProgress = (progress) => {
+      // Only update if the model matches the current input
+      if (progress && progress.model && progress.model === newModelUrl) {
+        newModelProgress = progress;
+        if (progress.error) newModelError = progress.error;
+      }
+    };
+  }
+
   function scrollToBottom() {
     if (messagesContainer) {
       requestAnimationFrame(() => {
@@ -153,6 +169,29 @@
       loadModels();
     }
   }
+
+  async function saveNewModel() {
+    if (!newModelUrl.trim()) return;
+    newModelProgress = { status: "Starting...", percent: 0 };
+    newModelError = null;
+    try {
+      await app.pullModel(
+        newModelUrl.trim(),
+        (progress) => (newModelProgress = progress)
+      );
+      newModelProgress = { status: "Done!", percent: 100 };
+      setTimeout(() => {
+        newModelMode = false;
+        newModelUrl = "";
+        newModelProgress = null;
+        loadModels();
+      }, 800);
+    } catch (e) {
+      newModelError = e.message || "Failed to pull model";
+      newModelProgress = null;
+    }
+  }
+
   onMount(() => {
     loadModels();
 
@@ -335,6 +374,68 @@
                     {/if}
                   </button>
                 {/each}
+                <!-- New model item -->
+                {#if newModelMode}
+                  <div class="model-card single-line new-model-row">
+                    <input
+                      class="new-model-input"
+                      type="text"
+                      bind:value={newModelUrl}
+                      placeholder="model name or URL (e.g. llama3)"
+                      autofocus
+                      onkeydown={(e) => {
+                        if (e.key === "Enter") saveNewModel();
+                        if (e.key === "Escape") {
+                          newModelMode = false;
+                          newModelUrl = "";
+                          newModelProgress = null;
+                          newModelError = null;
+                        }
+                      }}
+                      disabled={!!newModelProgress}
+                    />
+                    <button
+                      class="server-action-btn save"
+                      onclick={saveNewModel}
+                      disabled={!newModelUrl.trim() || !!newModelProgress}
+                      title="Pull model">✓</button
+                    >
+                    <button
+                      class="server-action-btn cancel"
+                      onclick={() => {
+                        newModelMode = false;
+                        newModelUrl = "";
+                        newModelProgress = null;
+                        newModelError = null;
+                      }}
+                      title="Cancel">✕</button
+                    >
+                    {#if newModelProgress}
+                      <span class="new-model-progress">
+                        {newModelProgress.status}
+                        {#if typeof newModelProgress.percent === "number"}
+                          &nbsp;({newModelProgress.percent}%)
+                        {/if}
+                      </span>
+                    {/if}
+                    {#if newModelError}
+                      <span class="new-model-error">{newModelError}</span>
+                    {/if}
+                  </div>
+                {:else}
+                  <button
+                    class="model-card single-line new-model-row"
+                    onclick={() => {
+                      newModelMode = true;
+                      newModelUrl = "";
+                      newModelProgress = null;
+                      newModelError = null;
+                    }}
+                    title="Pull new model"
+                  >
+                    <span class="model-title-display">+ New model</span>
+                  </button>
+                {/if}
               </div>
             {:else}
               <div class="no-connection">

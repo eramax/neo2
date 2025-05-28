@@ -407,6 +407,55 @@ body {
       color: #888;
       text-align: left;
     }
+    .model-card.single-line.new-model-row {
+      background: rgba(0, 0, 0, 0.18);
+      border: 1px dashed #444;
+      color: #b5e6b7;
+      font-style: italic;
+      gap: 0.5rem;
+      min-height: 40px;
+      align-items: center;
+
+      &:hover {
+        background: #23272e;
+        color: #fff;
+      }
+
+      input.new-model-input {
+        flex: 1 1 auto;
+        background: #23272e;
+        border: 1px solid #333;
+        border-radius: 4px;
+        color: #fff;
+        font-size: 0.95em;
+        padding: 6px 8px;
+        outline: none;
+        min-width: 120px;
+        max-width: 220px;
+
+        &::placeholder {
+          color: #888;
+          opacity: 0.7;
+        }
+
+        &:disabled {
+          opacity: 0.7;
+        }
+      }
+
+      .new-model-progress {
+        color: #10b981;
+        font-size: 0.9em;
+        margin-left: 0.5em;
+        animation: pulse 1.5s infinite;
+      }
+
+      .new-model-error {
+        color: #ef4444;
+        font-size: 0.9em;
+        margin-left: 0.5em;
+      }
+    }
   }
 }
 
