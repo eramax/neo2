@@ -343,9 +343,9 @@
                 </div>
               {:else}
                 <div class="loading-dots">
-                  <span></span>
-                  <span></span>
-                  <span></span>
+                  <span class="dot"></span>
+                  <span class="dot"></span>
+                  <span class="dot"></span>
                 </div>
               {/if}
             </div>
