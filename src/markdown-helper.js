@@ -6,7 +6,7 @@ export class MarkdownHelper {
         const renderer = new marked.Renderer();
 
         renderer.codespan = function (code) {
-            return `<code class="inline-code">${code.text}</code>`;
+            return `<code class="inline-code">${this.escapeHtml(code.text)}</code>`;
         };
 
         renderer.code = function (code) {
@@ -20,7 +20,7 @@ export class MarkdownHelper {
                 try {
                     highlighted = hljs.highlightAuto(codeStr).value;
                 } catch (autoErr) {
-                    highlighted = codeStr;
+                    highlighted = this.escapeHtml(codeStr);
                 }
             }
 
@@ -39,14 +39,44 @@ export class MarkdownHelper {
       </div>`;
         };
 
+        // Bind the escapeHtml method to the renderer context
+        renderer.escapeHtml = this.escapeHtml.bind(this);
+
         marked.setOptions({
             renderer: renderer,
             breaks: true,
             gfm: true,
-            tables: true, // Enable table support
+            tables: true,
             sanitize: false,
             smartypants: false,
         });
+    }
+
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    sanitizeHtml(html) {
+        // Replace script tags and other potentially dangerous elements
+        return html
+            .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, (match) => {
+                return `<pre class="sanitized-script">${this.escapeHtml(match)}</pre>`;
+            })
+            .replace(/<iframe[^>]*>[\s\S]*?<\/iframe>/gi, (match) => {
+                return `<pre class="sanitized-iframe">${this.escapeHtml(match)}</pre>`;
+            })
+            .replace(/<object[^>]*>[\s\S]*?<\/object>/gi, (match) => {
+                return `<pre class="sanitized-object">${this.escapeHtml(match)}</pre>`;
+            })
+            .replace(/<embed[^>]*>/gi, (match) => {
+                return `<pre class="sanitized-embed">${this.escapeHtml(match)}</pre>`;
+            })
+            // Remove javascript: URLs
+            .replace(/javascript:/gi, 'javascript-disabled:')
+            // Remove on* event handlers
+            .replace(/\son\w+\s*=/gi, (match) => ` data-removed-event="${match.trim().slice(1)}"=`);
     }
 
     preprocessCustomTags(content) {
@@ -93,10 +123,11 @@ ${processedContent}
         try {
             const contentStr = String(content || "");
             const preprocessed = this.preprocessCustomTags(contentStr);
-            return marked.parse(preprocessed);
+            const parsed = marked.parse(preprocessed);
+            return this.sanitizeHtml(parsed);
         } catch (err) {
             console.error("Markdown parse error:", err);
-            return String(content || "");
+            return this.escapeHtml(String(content || ""));
         }
     }
 
