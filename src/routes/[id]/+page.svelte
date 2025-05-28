@@ -39,10 +39,11 @@
   const filteredModels = $derived(models);
 
   function scrollToBottom() {
-    messagesContainer &&
-      requestAnimationFrame(
-        () => (messagesContainer.scrollTop = messagesContainer.scrollHeight)
-      );
+    if (messagesContainer) {
+      requestAnimationFrame(() => {
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+      });
+    }
   }
 
   async function loadModels() {
