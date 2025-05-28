@@ -1,4 +1,4 @@
-<!-- Ultra-compact Svelte 5 chat app -->
+<!-- Ultra-compact Svelte 5 chat app which uses dark mode only and all styles are in app.scss and all logic in core.js and always uses very optimized code with least code lines -->
 <script>
   import { onMount, onDestroy } from "svelte";
   import { goto } from "$app/navigation";
