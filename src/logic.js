@@ -217,7 +217,12 @@ export class ChatManager {
                     if (thinkEndIndex !== -1) {
                         cleanTitle = cleanTitle.substring(thinkEndIndex + '</think>'.length).trim();
                     }
-                    resolve(cleanTitle || "New Chat");
+                    
+                    // Limit to first 8 words and escape the rest
+                    const words = cleanTitle.split(/\s+/);
+                    const limitedTitle = words.slice(0, 8).join(' ');
+                    
+                    resolve(limitedTitle || "New Chat");
                 },
                 (error) => { resolve("New Chat"); } // Fallback title
             );

@@ -469,6 +469,7 @@ body {
 
   .message-content {
     flex: 1;
+    width: 100vh;
   }
 
   .message-header {
@@ -697,6 +698,29 @@ body {
       text-align: right;
     }
 
+    // Reset counter for nested ul elements and override ol styling
+    ol ul {
+      counter-reset: none;
+    }
+
+    ol ul li {
+      counter-increment: none;
+    }
+
+    ol ul li::before {
+      content: "-";
+      color: $accent;
+      font-weight: bold;
+      font-size: 16px;
+      position: absolute;
+      left: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      line-height: 1;
+      min-width: auto;
+      text-align: left;
+    }
+
     // Nested list styling
     ul ul,
     ol ol,
@@ -718,21 +742,29 @@ body {
       font-size: 12px;
     }
 
-    // Task list styling (GitHub-style checkboxes)
-    li input[type="checkbox"] {
-      margin-right: 8px;
-      margin-left: -24px;
-      position: relative;
-      top: 2px;
-      accent-color: $accent;
-      transform: scale(1.1);
+    // Ensure nested ol in ul gets proper numbering
+    ul ol {
+      counter-reset: list-counter;
     }
 
-    li input[type="checkbox"]:checked + * {
-      text-decoration: line-through;
-      color: $text-muted;
+    ul ol li {
+      counter-increment: list-counter;
     }
 
+    ul ol li::before {
+      content: counter(list-counter) ".";
+      color: $accent;
+      font-weight: 600;
+      font-size: 14px;
+      position: absolute;
+      left: 0;
+      top: 0;
+      line-height: 1.5;
+      min-width: 20px;
+      text-align: right;
+    }
+
+    // Code block styles
     code {
       background: #2a2a2a;
       padding: 2px 4px;
@@ -761,6 +793,9 @@ body {
       margin: 16px 0;
       overflow: hidden;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      max-width: 100%;
+      width: 100%;
+      box-sizing: border-box;
     }
 
     .code-block-header {
@@ -841,11 +876,22 @@ body {
       font-size: 14px;
       line-height: 1.6;
       overflow-x: auto;
+      max-width: 100%;
+      /* width: 100%; */ /* Removed to rely on block behavior + max-width */
+      white-space: pre;
+      box-sizing: border-box;
 
       code {
         background: none;
         padding: 0;
         color: #e6edf3;
+        white-space: pre;
+        word-wrap: normal;
+        overflow-wrap: normal;
+        display: block;
+        width: max-content;
+        min-width: 100%;
+        box-sizing: border-box;
       }
     }
 
