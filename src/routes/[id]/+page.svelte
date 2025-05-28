@@ -239,11 +239,46 @@
     }
   }
 
+  // Add reference for textarea auto-resize
+  let messageTextarea;
+  let textareaHeight = $state("auto");
+
+  // Function to auto-resize textarea
+  function autoResizeTextarea() {
+    if (messageTextarea) {
+      // Reset height to auto to get the correct scrollHeight
+      messageTextarea.style.height = "auto";
+
+      // Calculate the height needed
+      const scrollHeight = messageTextarea.scrollHeight;
+      const lineHeight = 24; // Approximate line height in pixels
+      const maxLines = 10;
+      const maxHeight = lineHeight * maxLines;
+
+      // Set height, but cap at maxHeight
+      const newHeight = Math.min(scrollHeight, maxHeight);
+      messageTextarea.style.height = newHeight + "px";
+      textareaHeight = newHeight + "px";
+    }
+  }
+
+  // Auto-resize when message content changes
+  $effect(() => {
+    if (message !== undefined) {
+      setTimeout(autoResizeTextarea, 0);
+    }
+  });
+
   function handleInputKeydown(e) {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       sendMessage();
     }
+  }
+
+  // Add input handler for auto-resize
+  function handleInput() {
+    autoResizeTextarea();
   }
 </script>
 
@@ -293,6 +328,104 @@
         {sidebarCollapsed ? "☰" : "✕"}
       </button>
       <h1 class="chat-title">{selectedChat}</h1>
+
+      <div class="model-selector">
+        <button
+          class="model-trigger"
+          onclick={() => (showModelSelector = !showModelSelector)}
+          disabled={modelsLoading}
+        >
+          <span class="model-name">{currentModel?.name || "Select Model"}</span>
+          <span class="chevron" class:open={showModelSelector}>▼</span>
+        </button>
+
+        {#if showModelSelector}
+          <div class="model-dropdown">
+            {#if modelsLoading}
+              <div class="model-loading">
+                <div class="loading-spinner"></div>
+                <span>Loading models...</span>
+              </div>
+            {:else if modelsError}
+              <div class="model-error">
+                <div class="error-icon">⚠️</div>
+                <div class="error-content">
+                  <span class="error-title">Connection Failed</span>
+                  <span class="error-message">{modelsError}</span>
+                </div>
+                <button
+                  onclick={() =>
+                    modelManager.loadOllamaModels({
+                      setAllowedModels: (models) => (allowedModels = models),
+                      setModelsLoading: (loading) => (modelsLoading = loading),
+                      setModelsError: (err) => (modelsError = err),
+                      selectedModel,
+                      setSelectedModel: (id) => (selectedModel = id),
+                    })}
+                  class="retry-btn"
+                >
+                  <span>↻</span>
+                  Retry
+                </button>
+              </div>
+            {:else}
+              <div class="models-grid scrollable-model-list">
+                {#each filteredModels as model}
+                  <button
+                    class="model-card single-line"
+                    class:selected={model.id === selectedModel}
+                    onclick={() => selectModel(model.id)}
+                    onkeydown={(e) =>
+                      e.key === "Enter" && selectModel(model.id)}
+                    type="button"
+                    aria-label={`Select model ${model.name}`}
+                    role="option"
+                    aria-selected={model.id === selectedModel}
+                  >
+                    <span class="model-title-display" title={model.name}>
+                      {model.name}
+                    </span>
+                    <span class="model-badges">
+                      <span class="badge size" title="Size">{model.size}</span>
+                      <span class="badge format" title="Format"
+                        >{model.format}</span
+                      >
+                      <span class="badge arch" title="Architecture"
+                        >{model.arch}</span
+                      >
+                    </span>
+                    <span class="model-actions">
+                      {#if model.id === selectedModel}
+                        <span class="selected-indicator" title="Selected">
+                          <CheckmarkIcon />
+                        </span>
+                      {/if}
+                      {#if model.link}
+                        <a
+                          href={model.link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          class="model-link-icon"
+                          title={`Open ${model.name} details`}
+                          onclick={(e) => e.stopPropagation()}
+                          aria-label={`Open details for ${model.name} in a new tab`}
+                        >
+                          <ModelLinkIcon />
+                        </a>
+                      {/if}
+                    </span>
+                  </button>
+                {/each}
+                {#if filteredModels.length === 0 && !modelsLoading}
+                  <div class="no-models-found">
+                    <p>No models match your search.</p>
+                  </div>
+                {/if}
+              </div>
+            {/if}
+          </div>
+        {/if}
+      </div>
     </div>
 
     <div class="messages" bind:this={messagesContainer}>
@@ -356,116 +489,16 @@
 
     <div class="input-area">
       <div class="input-container">
-        <button class="add-btn">+</button>
-        <input
+        <textarea
+          bind:this={messageTextarea}
           bind:value={message}
           placeholder="Send a Message"
           class="message-input"
           onkeydown={handleInputKeydown}
+          oninput={handleInput}
           disabled={isStreaming}
-        />
-        <div class="model-selector">
-          <button
-            class="model-trigger"
-            onclick={() => (showModelSelector = !showModelSelector)}
-            disabled={modelsLoading}
-          >
-            <span class="model-name"
-              >{currentModel?.name || "Select Model"}</span
-            >
-            <span class="chevron" class:open={showModelSelector}>▼</span>
-          </button>
-
-          {#if showModelSelector}
-            <div class="model-dropdown">
-              {#if modelsLoading}
-                <div class="model-loading">
-                  <div class="loading-spinner"></div>
-                  <span>Loading models...</span>
-                </div>
-              {:else if modelsError}
-                <div class="model-error">
-                  <div class="error-icon">⚠️</div>
-                  <div class="error-content">
-                    <span class="error-title">Connection Failed</span>
-                    <span class="error-message">{modelsError}</span>
-                  </div>
-                  <button
-                    onclick={() =>
-                      modelManager.loadOllamaModels({
-                        setAllowedModels: (models) => (allowedModels = models),
-                        setModelsLoading: (loading) =>
-                          (modelsLoading = loading),
-                        setModelsError: (err) => (modelsError = err),
-                        selectedModel,
-                        setSelectedModel: (id) => (selectedModel = id),
-                      })}
-                    class="retry-btn"
-                  >
-                    <span>↻</span>
-                    Retry
-                  </button>
-                </div>
-              {:else}
-                <div class="models-grid scrollable-model-list">
-                  {#each filteredModels as model}
-                    <button
-                      class="model-card single-line"
-                      class:selected={model.id === selectedModel}
-                      onclick={() => selectModel(model.id)}
-                      onkeydown={(e) =>
-                        e.key === "Enter" && selectModel(model.id)}
-                      type="button"
-                      aria-label={`Select model ${model.name}`}
-                      role="option"
-                      aria-selected={model.id === selectedModel}
-                    >
-                      <span class="model-title-display" title={model.name}>
-                        {model.name}
-                      </span>
-                      <span class="model-badges">
-                        <span class="badge size" title="Size">{model.size}</span
-                        >
-                        <span class="badge format" title="Format"
-                          >{model.format}</span
-                        >
-                        <span class="badge arch" title="Architecture"
-                          >{model.arch}</span
-                        >
-                      </span>
-                      <span class="model-actions">
-                        {#if model.id === selectedModel}
-                          <span class="selected-indicator" title="Selected">
-                            <CheckmarkIcon />
-                          </span>
-                        {/if}
-                        {#if model.link}
-                          <a
-                            href={model.link}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            class="model-link-icon"
-                            title={`Open ${model.name} details`}
-                            onclick={(e) => e.stopPropagation()}
-                            aria-label={`Open details for ${model.name} in a new tab`}
-                          >
-                            <ModelLinkIcon />
-                          </a>
-                        {/if}
-                      </span>
-                    </button>
-                  {/each}
-                  {#if filteredModels.length === 0 && !modelsLoading}
-                    <div class="no-models-found">
-                      <p>No models match your search.</p>
-                    </div>
-                  {/if}
-                </div>
-              {/if}
-            </div>
-          {/if}
-        </div>
-        <button class="mic-btn">🎤</button>
+          rows="1"
+        ></textarea>
         <button
           class="send-btn"
           class:abort={isStreaming}
