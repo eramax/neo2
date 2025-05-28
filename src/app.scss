@@ -496,6 +496,7 @@ body {
 
   .content {
     line-height: 1.6;
+    padding-right: 32px;
 
     h1,
     h2,
@@ -756,7 +757,7 @@ body {
     .code-block-container {
       background: $bg-code;
       border: 1px solid #30363d;
-      border-radius: $radius-lg;
+      border-radius: 4px;
       margin: 16px 0;
       overflow: hidden;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
@@ -781,12 +782,12 @@ body {
 
     .copy-code-btn {
       @include btn-base;
-      gap: 6px;
+      gap: 4px;
       background: #21262d;
       border: 1px solid #30363d;
       color: #f0f6fc;
-      padding: 6px 10px;
-      border-radius: 6px;
+      padding: 4px 8px;
+      border-radius: 4px;
       font-size: 12px;
       position: relative;
       overflow: hidden;
