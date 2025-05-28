@@ -281,15 +281,71 @@ export class ChatManager {
         return newChatId;
     }
 
-    addMessage(chatId, message) {
+    async generateChatTitle(userMessage, streamingHelper, selectedModel) {
+        const titlePrompt = "no_think generate a title for such user request with max 7 words";
+        const titleMessages = [
+            { role: "user", content: `${titlePrompt}: "${userMessage}"` }
+        ];
+
+        return new Promise((resolve) => {
+            let titleContent = "";
+            streamingHelper.streamResponse(
+                selectedModel,
+                titleMessages,
+                (chunk) => { titleContent = chunk; },
+                (finalTitle) => {
+                    let cleanTitle = finalTitle.trim();
+                    // Check if response contains </think> tag and extract content after it
+                    const thinkEndIndex = cleanTitle.indexOf('</think>');
+                    if (thinkEndIndex !== -1) {
+                        cleanTitle = cleanTitle.substring(thinkEndIndex + '</think>'.length).trim();
+                    }
+                    resolve(cleanTitle || "New Chat");
+                },
+                (error) => { resolve("New Chat"); } // Fallback title
+            );
+        });
+    }
+
+    addMessage(chatId, message, streamingHelper = null, selectedModel = null) {
         if (!this.chatMessages[chatId]) {
             this.chatMessages[chatId] = [];
         }
+
+        const isFirstUserMessage = this.chatMessages[chatId].length === 0 && message.role === "user";
+
         this.chatMessages = {
             ...this.chatMessages,
             [chatId]: [...this.chatMessages[chatId], message]
         };
+
+        // Save immediately to return current messages
         this.saveData();
+
+        // Generate title for new chats after first user message (async, non-blocking)
+        if (isFirstUserMessage && streamingHelper && selectedModel) {
+            // Use setTimeout to make this truly non-blocking
+            setTimeout(() => {
+                this.generateChatTitle(message.content, streamingHelper, selectedModel)
+                    .then(newTitle => {
+                        const chatIndex = this.chats.findIndex(c => c.id == chatId);
+                        if (chatIndex !== -1) {
+                            this.chats[chatIndex].title = newTitle;
+                            this.saveData();
+                            // Trigger a custom event to notify the UI of the title change
+                            if (typeof window !== 'undefined') {
+                                window.dispatchEvent(new CustomEvent('chatTitleUpdated', {
+                                    detail: { chatId, newTitle }
+                                }));
+                            }
+                        }
+                    })
+                    .catch(error => {
+                        console.error("Failed to generate chat title:", error);
+                    });
+            }, 0);
+        }
+
         return this.chatMessages[chatId];
     }
 

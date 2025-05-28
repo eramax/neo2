@@ -67,6 +67,18 @@
     markdownHelper.highlightAll();
     window.copyCodeToClipboard = clipboardHelper.copyCodeToClipboard;
 
+    // Listen for chat title updates
+    window.addEventListener("chatTitleUpdated", (event) => {
+      const { chatId, newTitle } = event.detail;
+      // Update local chats state
+      chats = chatManager.getChats();
+      // Update current chat title if it's the active chat
+      if (chatId == currentChatId) {
+        selectedChat = newTitle;
+        currentChat = chatManager.getCurrentChat(chatId);
+      }
+    });
+
     // Load models from Ollama
     modelManager.loadOllamaModels({
       setAllowedModels: (models) => (allowedModels = models),
@@ -164,7 +176,7 @@
     }
   });
 
-  async function sendMessage() {
+  function sendMessage() {
     if (!message.trim() || isStreaming || !chatManager) return;
 
     const userMessage = message;
@@ -177,7 +189,12 @@
       metadata: { model: selectedModel },
     };
 
-    currentMessages = chatManager.addMessage(currentChatId, userMsg);
+    currentMessages = chatManager.addMessage(
+      currentChatId,
+      userMsg,
+      streamingHelper,
+      selectedModel
+    );
     chatMessages = chatManager.getChatMessages();
 
     streamingMessage = "";
