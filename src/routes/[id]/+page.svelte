@@ -445,10 +445,10 @@
           <div
             class="message {msg.role === 'ai' ? 'ai-message' : 'user-message'}"
           >
-            <div class="avatar">{msg.role === "ai" ? "🤖" : "🧑"}</div>
+            <div class="avatar">{msg.role === "ai" ? "🤖" : "👤"}</div>
             <div class="message-content">
               <div class="message-header">
-                <span class="sender">{msg.metadata?.model || msg.role}</span>
+                <span class="sender">{msg.role === "ai" ? (msg.metadata?.model || "AI") : "User"}</span>
                 <span class="time">{msg.time}</span>
               </div>
               <div class="content">
