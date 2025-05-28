@@ -51,7 +51,7 @@ export class ChatApp {
             const escapeHtml = text => { const div = document.createElement('div'); div.textContent = text; return div.innerHTML; };
             const processed = String(content || "")
                 .replace(/<think>([\s\S]*?)(?:<\/think>|$)/gi, (_, thinkContent) =>
-                    `<details class="think-accordion dark-mode" ${!_.endsWith('</think>') ? 'open' : ''}><summary class="think-summary">💭 Thinking process (click to expand)</summary><div class="think-content">${thinkContent.trim() ? marked.parse(thinkContent.trim()) : '<em>Thinking...</em>'}</div></details>`)
+                    `<details class="think-accordion dark-mode" ${!_.endsWith('</think>') ? 'open' : ''}><summary class="think-summary">💭 Thinking process</summary><div class="think-content">${thinkContent.trim() ? marked.parse(thinkContent.trim()) : '<em>Thinking...</em>'}</div></details>`)
                 .replace(/<answer>([\s\S]*?)<\/answer>/gi, (_, answerContent) => answerContent.trim());
 
             return marked.parse(processed)
