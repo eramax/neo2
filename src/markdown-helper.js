@@ -10,7 +10,15 @@ export class MarkdownHelper {
         };
 
         renderer.code = function (code) {
-            const validLang = hljs.getLanguage(code.lang) ? code.lang : "text";
+            // Map unsupported languages to supported alternatives
+            let mappedLang = code.lang;
+            if (code.lang === "svelte") {
+                mappedLang = "html"; // Svelte uses HTML-like syntax
+            }
+
+            const validLang = hljs.getLanguage(mappedLang) ? mappedLang : "text";
+            console.log("Rendering code block:", code.lang, code.text, validLang);
+
             const codeStr = code.text || "";
 
             let highlighted;
@@ -26,7 +34,7 @@ export class MarkdownHelper {
 
             return `<div class="code-block-container">
         <div class="code-block-header">
-          <span class="code-language">${validLang}</span>
+          <span class="code-language">${code.lang}</span>
           <button class="copy-code-btn" onclick="copyCodeToClipboard(this)">
             <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
               <path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z"/>
@@ -87,7 +95,7 @@ export class MarkdownHelper {
                 const isComplete = match.endsWith('</think>');
                 const processedContent = thinkContent.trim() ? marked.parse(thinkContent.trim()) : '<em>Thinking...</em>';
                 const openAttribute = isComplete ? '' : ' open';
-                
+
                 return `<details class="think-accordion dark-mode"${openAttribute}>
 <summary class="think-summary">💭 Thinking process (click to expand)</summary>
 <div class="think-content">
