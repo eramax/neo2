@@ -772,18 +772,27 @@ body {
       font-family: "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas,
         "Courier New", monospace;
       font-size: 13px;
+      width: auto;
+      overflow-x: auto;
     }
 
-    .inline-code {
-      background: #1a472a;
-      color: #7dd3fc;
-      border: 1px solid #22c55e;
-      padding: 2px 6px;
+    .inline-code,
+    .codespan {
+      cursor: pointer;
+      color: #ff6b6b;
+      margin-inline: 4px;
       border-radius: 6px;
+      background-color: $bg-tertiary;
+      border-width: 0;
+      padding: 3px 8px;
+      font-size: 0.8em;
+      font-weight: 600;
       font-family: "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas,
         "Courier New", monospace;
-      font-size: 13px;
-      font-weight: 500;
+    }
+
+    .cursor-pointer {
+      cursor: pointer;
     }
 
     .code-block-container {
