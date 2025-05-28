@@ -795,3 +795,61 @@ br {
 .scrollable-model-list::-webkit-scrollbar-thumb:hover {
   background: #718096;
 }
+
+/* Thinking process accordion styles */
+.think-accordion {
+  margin: 1rem 0;
+  border: 1px solid $border-light;
+  border-radius: $radius;
+  background-color: $bg-tertiary;
+  overflow: hidden;
+}
+
+.think-summary {
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  font-weight: 500;
+  color: $text;
+  background-color: $bg-secondary;
+  border: none;
+  outline: none;
+  transition: background-color 0.2s ease;
+  user-select: none;
+  list-style: none;
+}
+
+.think-summary:hover {
+  background-color: $bg-primary;
+}
+
+.think-summary::-webkit-details-marker,
+.think-summary::marker {
+  display: none;
+}
+
+.think-summary::before {
+  content: "▶";
+  display: inline-block;
+  margin-right: 0.5rem;
+  transition: transform 0.2s ease;
+  color: $text-muted;
+}
+
+.think-accordion[open] .think-summary::before {
+  transform: rotate(90deg);
+}
+
+.think-content {
+  padding: 1rem;
+  border-top: 1px solid $border-light;
+  background-color: $bg-primary;
+  color: $text;
+}
+
+.think-content > *:first-child {
+  margin-top: 0;
+}
+
+.think-content > *:last-child {
+  margin-bottom: 0;
+}

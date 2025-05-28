@@ -52,10 +52,37 @@ export class MarkdownHelper {
         });
     }
 
+    preprocessCustomTags(content) {
+        // Handle <think> tags - convert to collapsible accordion
+        content = content.replace(
+            /<think>([\s\S]*?)<\/think>/gi,
+            (match, thinkContent) => {
+                const processedContent = marked.parse(thinkContent.trim());
+                return `<details class="think-accordion dark-mode">
+<summary class="think-summary">💭 Thinking process (click to expand)</summary>
+<div class="think-content">
+${processedContent}
+</div>
+</details>`;
+            }
+        );
+
+        // Handle <answer> tags - just remove the tags and keep content
+        content = content.replace(
+            /<answer>([\s\S]*?)<\/answer>/gi,
+            (match, answerContent) => {
+                return answerContent.trim();
+            }
+        );
+
+        return content;
+    }
+
     parse(content) {
         try {
             const contentStr = String(content || "");
-            return marked.parse(contentStr);
+            const preprocessed = this.preprocessCustomTags(contentStr);
+            return marked.parse(preprocessed);
         } catch (err) {
             console.error("Markdown parse error:", err);
             return String(content || "");
