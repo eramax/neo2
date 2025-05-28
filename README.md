@@ -1,38 +1,55 @@
-# sv
+---
+title: Neo2 Chat
+emoji: 🤖
+colorFrom: blue
+colorTo: purple
+sdk: static
+pinned: false
+---
 
-Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
+# Neo2 Chat
 
-## Creating a project
+A modern chat interface for LLM models built with Svelte 5. This application provides a clean, responsive interface for chatting with various language models through Ollama.
 
-If you're seeing this, you've probably already done this step. Congrats!
+## Features
+
+- 💬 Real-time streaming chat interface
+- 🎨 Modern, responsive design
+- 🔄 Multiple model support via Ollama
+- 📝 Markdown rendering with syntax highlighting
+- 💾 Chat history management
+- 📱 Mobile-friendly interface
+
+## Usage
+
+This Space hosts a Svelte application that connects to Ollama for language model inference. The interface allows you to:
+
+1. Select from available models
+2. Start new conversations
+3. View chat history
+4. Copy code snippets
+5. Stream responses in real-time
+
+## Technical Stack
+
+- **Frontend**: Svelte 5
+- **Styling**: SCSS
+- **Markdown**: marked.js
+- **Syntax Highlighting**: highlight.js
+- **LLM Backend**: Ollama
+- **Deployment**: Static hosting on Hugging Face Spaces
+
+## Development
 
 ```bash
-# create a new project in the current directory
-npx sv create
-
-# create a new project in my-app
-npx sv create my-app
+bun i
+bun dev
 ```
 
-## Developing
-
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
+## Build
 
 ```bash
-npm run dev
-
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
+bun run build
 ```
 
-## Building
-
-To create a production version of your app:
-
-```bash
-npm run build
-```
-
-You can preview the production build with `npm run preview`.
-
-> To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
+The built files will be in the `build` directory, which Hugging Face Spaces will serve automatically.
