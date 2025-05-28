@@ -326,9 +326,6 @@
                 <span class="sender">{msg.metadata?.model || msg.role}</span>
                 <span class="time">{msg.time}</span>
               </div>
-              {#if msg.role === "ai"}
-                <div class="thinking">Thought for 4 seconds ⌄</div>
-              {/if}
               <div class="content">{@html parseMarkdown(msg.content)}</div>
             </div>
           </div>

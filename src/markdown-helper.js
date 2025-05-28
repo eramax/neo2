@@ -67,6 +67,20 @@ ${processedContent}
             }
         );
 
+        // Handle incomplete <think> tags (for streaming) - show accordion immediately
+        content = content.replace(
+            /<think>([\s\S]*)$/gi,
+            (match, thinkContent) => {
+                const processedContent = thinkContent.trim() ? marked.parse(thinkContent.trim()) : '<em>Thinking...</em>';
+                return `<details class="think-accordion dark-mode">
+<summary class="think-summary">💭 Thinking process (click to expand)</summary>
+<div class="think-content">
+${processedContent}
+</div>
+</details>`;
+            }
+        );
+
         // Handle <answer> tags - just remove the tags and keep content
         content = content.replace(
             /<answer>([\s\S]*?)<\/answer>/gi,
