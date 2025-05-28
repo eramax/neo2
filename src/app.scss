@@ -659,76 +659,48 @@ body {
     ul,
     ol {
       margin: 12px 0;
-      padding-left: 0;
+      padding-left: 24px;
       list-style: none;
       position: relative;
+    }
+
+    ul {
+      list-style-type: disc;
+    }
+
+    ol {
+      list-style-type: decimal;
+      counter-reset: list-counter;
     }
 
     ul li,
     ol li {
       margin: 6px 0;
-      padding-left: 24px;
+      padding-left: 0;
       position: relative;
       line-height: 1.5;
       color: $text;
     }
 
-    // Unordered list styling
-    ul li::before {
-      content: "-";
+    ul li::marker,
+    ol li::marker {
       color: $accent;
       font-weight: bold;
-      font-size: 16px;
-      position: absolute;
-      left: 8px;
-      top: 50%;
-      transform: translateY(-50%);
-      line-height: 1;
     }
 
     // Ordered list styling
-    ol {
-      counter-reset: list-counter;
-    }
-
     ol li {
       counter-increment: list-counter;
-    }
-
-    ol li::before {
-      content: counter(list-counter) ".";
-      color: $accent;
-      font-weight: 600;
-      font-size: 14px;
-      position: absolute;
-      left: 0;
-      top: 0;
-      line-height: 1.5;
-      min-width: 20px;
-      text-align: right;
     }
 
     // Reset counter for nested ul elements and override ol styling
     ol ul {
       counter-reset: none;
+      list-style-type: disc;
     }
 
     ol ul li {
       counter-increment: none;
-    }
-
-    ol ul li::before {
-      content: "-";
-      color: $accent;
-      font-weight: bold;
-      font-size: 16px;
-      position: absolute;
-      left: 8px;
-      top: 50%;
-      transform: translateY(-50%);
-      line-height: 1;
-      min-width: auto;
-      text-align: left;
     }
 
     // Nested list styling
@@ -740,40 +712,37 @@ body {
       padding-left: 20px;
     }
 
-    ul ul li::before {
-      content: "◦";
-      color: $text-muted;
-      font-size: 14px;
+    ul ul {
+      list-style-type: circle;
     }
 
-    ul ul ul li::before {
-      content: "▪";
+    ul ul li::marker {
+      color: $text-muted;
+    }
+
+    ul ul ul {
+      list-style-type: square;
+    }
+
+    ul ul ul li::marker {
       color: $text-dim;
-      font-size: 12px;
     }
 
     // Ensure nested ol in ul gets proper numbering
     ul ol {
       counter-reset: list-counter;
+      list-style-type: decimal;
     }
 
     ul ol li {
       counter-increment: list-counter;
     }
 
-    ul ol li::before {
-      content: counter(list-counter) ".";
+    ul ol li::marker {
       color: $accent;
       font-weight: 600;
-      font-size: 14px;
-      position: absolute;
-      left: 0;
-      top: 0;
-      line-height: 1.5;
-      min-width: 20px;
-      text-align: right;
     }
-
+    // ...existing code...
     // Code block styles
     code {
       background: #1a1b1c;
