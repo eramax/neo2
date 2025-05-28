@@ -122,16 +122,13 @@
     }
   });
 
-  // Save selectedModel to localStorage whenever it changes
-  $effect(() => {
-    if (browser) {
-      StorageHelper.saveSelectedModel(selectedModel);
-    }
-  });
-
   function selectModel(modelId) {
     selectedModel = modelId;
     showModelSelector = false;
+    // Ensure the selection is saved to localStorage
+    if (browser) {
+      StorageHelper.saveSelectedModel(modelId);
+    }
   }
 
   function toggleSidebar() {
