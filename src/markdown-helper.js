@@ -75,8 +75,8 @@ export class MarkdownHelper {
             })
             // Remove javascript: URLs
             .replace(/javascript:/gi, 'javascript-disabled:')
-            // Remove on* event handlers
-            .replace(/\son\w+\s*=/gi, (match) => ` data-removed-event="${match.trim().slice(1)}"=`);
+        // Remove on* event handlers
+        //.replace(/\son\w+\s*=/gi, (match) => ` data-removed-event="${match.trim().slice(1)}"=`);
     }
 
     preprocessCustomTags(content) {
