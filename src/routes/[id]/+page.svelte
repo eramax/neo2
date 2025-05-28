@@ -404,7 +404,7 @@
                           onclick={(e) => e.stopPropagation()}
                           aria-label={`Open details for ${model.name} in a new tab`}
                         >
-                          <modelLinkIcon />
+                          {@html modelLinkIcon}
                         </a>
                       {/if}
                     </span>
