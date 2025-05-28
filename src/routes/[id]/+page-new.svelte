@@ -4,8 +4,8 @@
   import { goto } from "$app/navigation";
   import { page } from "$app/stores";
   import { browser } from "$app/environment";
-  import { ChatApp, modelLinkIcon } from "../../core.js";
-  import "../../app.scss";
+  import { ChatApp, modelLinkIcon } from "../core.js";
+  import "../app.scss";
 
   const app = new ChatApp();
 
@@ -103,6 +103,8 @@
 
     streamingMessage = "";
     isStreaming = true;
+    setTimeout(scrollToBottom, 10);
+
     await app.streamResponse(
       selectedModel,
       currentMessages.filter((m) => m.role === "user" || m.role === "ai"),
