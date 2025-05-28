@@ -43,6 +43,7 @@ export class MarkdownHelper {
             renderer: renderer,
             breaks: true,
             gfm: true,
+            tables: true, // Enable table support
             sanitize: false,
             smartypants: false,
         });

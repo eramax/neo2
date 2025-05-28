@@ -326,7 +326,9 @@
                 <span class="sender">{msg.metadata?.model || msg.role}</span>
                 <span class="time">{msg.time}</span>
               </div>
-              <div class="content">{@html parseMarkdown(msg.content)}</div>
+              <div class="content">
+                {@html parseMarkdown(msg.content)}
+              </div>
             </div>
           </div>
         {/each}
