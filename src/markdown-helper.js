@@ -80,26 +80,15 @@ export class MarkdownHelper {
     }
 
     preprocessCustomTags(content) {
-        // Handle <think> tags - convert to collapsible accordion
+        // Handle <think> tags - both complete and incomplete (for streaming)
         content = content.replace(
-            /<think>([\s\S]*?)<\/think>/gi,
-            (match, thinkContent) => {
-                const processedContent = marked.parse(thinkContent.trim());
-                return `<details class="think-accordion dark-mode">
-<summary class="think-summary">💭 Thinking process (click to expand)</summary>
-<div class="think-content">
-${processedContent}
-</div>
-</details>`;
-            }
-        );
-
-        // Handle incomplete <think> tags (for streaming) - show accordion immediately
-        content = content.replace(
-            /<think>([\s\S]*)$/gi,
-            (match, thinkContent) => {
+            /<think>([\s\S]*?)(?:<\/think>|$)/gi,
+            (match, thinkContent, offset, string) => {
+                const isComplete = match.endsWith('</think>');
                 const processedContent = thinkContent.trim() ? marked.parse(thinkContent.trim()) : '<em>Thinking...</em>';
-                return `<details class="think-accordion dark-mode">
+                const openAttribute = isComplete ? '' : ' open';
+                
+                return `<details class="think-accordion dark-mode"${openAttribute}>
 <summary class="think-summary">💭 Thinking process (click to expand)</summary>
 <div class="think-content">
 ${processedContent}
