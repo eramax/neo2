@@ -126,12 +126,7 @@ export class StorageHelper {
                 } catch { }
             }
         }
-        return [
-            { id: 1, title: "explain this code", category: "Today" },
-            { id: 2, title: "explain this code - js /* Stream", category: "Yesterday" },
-            { id: 3, title: "review this code", category: "Previous 30 days" },
-            { id: 4, title: "review this markdown rules", category: "Previous 30 days" },
-        ];
+        return [];
     }
 
     static saveChatMessages(chatMessages) {
@@ -149,24 +144,7 @@ export class StorageHelper {
                 } catch { }
             }
         }
-        return {
-            1: [
-                {
-                    metadata: { model: "gpt-4", id: "chatcmpl-1234567890" },
-                    role: "ai",
-                    content: "This Svelte code sets up a markdown editor with HTML sanitization using `DOMPurify`. Here's a breakdown:\n\n```javascript\n// Example code\nconst editor = new MarkdownEditor({\n  element: document.getElementById('editor'),\n  sanitize: true\n});\n```\n\nThe code includes:\n- **Markdown parsing** with marked\n- **Syntax highlighting** with highlight.js\n- **HTML sanitization** for security",
-                    time: "Today at 4:03 PM",
-                },
-            ],
-            2: [
-                {
-                    metadata: { model: "gpt-3.5-turbo", id: "chatcmpl-0987654321" },
-                    role: "ai",
-                    content: "Here's how JavaScript streams work:\n\n```javascript\nconst stream = new ReadableStream({\n  start(controller) {\n    controller.enqueue('Hello ');\n    controller.enqueue('World!');\n    controller.close();\n  }\n});\n```",
-                    time: "Yesterday at 2:15 PM",
-                },
-            ],
-        };
+        return {};
     }
 
     static saveSelectedModel(modelId) {
@@ -210,7 +188,7 @@ export class ChatManager {
 
     createNewChat() {
         const newChatId = Date.now().toString();
-        this.chats.push({
+        this.chats.unshift({
             id: newChatId,
             title: "New Chat",
             category: "Today",
