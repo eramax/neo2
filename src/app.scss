@@ -44,7 +44,6 @@ html,
 body {
   width: 100%;
   height: 100%;
-  overflow: hidden;
 }
 
 .app {
@@ -68,6 +67,7 @@ body {
   display: flex;
   flex-direction: column;
   transition: all 0.3s ease;
+  height: 100vh; // ensure sidebar fills viewport height
 
   &.collapsed {
     width: 0;
@@ -114,7 +114,8 @@ body {
   }
 
   .chats-section {
-    flex: 1;
+    flex: 1 1 auto;
+    min-height: 0; // allow flex child to shrink for scrolling
     padding: 0px 10px; // reduced padding
     overflow-y: auto;
   }
