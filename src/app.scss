@@ -210,6 +210,7 @@ body {
   display: flex;
   flex-direction: column;
   transition: all 0.3s ease;
+  background: #171717; // changed from $bg-primary
 
   &.sidebar-collapsed {
     margin-left: 0;
